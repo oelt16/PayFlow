@@ -1,0 +1,9 @@
+# Local dev stack (PostgreSQL, Kafka, services) — expand in Phase 7 per PayFlow spec.
+# Start Docker Desktop, then: docker compose -f infra/docker-compose.yml up
+name: payflow
+services:
+  # Placeholder so the file validates; real services use default profile in Phase 7.
+  stack_placeholder:
+    image: alpine:3.20
+    profiles: ["future"]
+    command: ["sh", "-c", "echo Define services in Phase 7 && sleep 1"]

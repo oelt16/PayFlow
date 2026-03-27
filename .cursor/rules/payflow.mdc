@@ -1,0 +1,41 @@
+---
+description: PayFlow stack, architecture, TDD, and security boundaries
+alwaysApply: true
+---
+
+# PayFlow project rules
+
+## Stack (pin versions when adding dependencies)
+
+- **Backend:** Java 21, Spring Boot 3.3.x (when introduced), Spring Web MVC, Spring Data JPA, springdoc OpenAPI 3.1.
+- **Data & messaging:** PostgreSQL 16 (one schema per bounded context), Apache Kafka 3.7, transactional outbox before publishing events.
+- **Testing:** JUnit 5, Mockito, Testcontainers, WireMock. Domain tests stay pure Java; no Spring context in `domain` tests.
+- **Frontend:** React 18+ (Vite template may ship newer React), TypeScript 5, Vite, TanStack Query, Zustand, Zod, shadcn/ui, Tailwind, Recharts when UI work starts.
+
+## Hexagonal layout (per service)
+
+Under `com.payflow.<context>`:
+
+- `domain` — aggregates, value objects, domain events, domain exceptions. **No** Spring, JPA, Kafka, or HTTP imports.
+- `application` — use cases, ports (interfaces), command/query handlers.
+- `infrastructure` — JPA, Kafka, adapters implementing ports.
+- `api` — REST controllers, DTOs, mappers.
+
+Dependencies point **inward**; the domain never depends on outer layers.
+
+## TDD
+
+Follow red → green → refactor. Add a failing test first, then minimal production code, then refactor with all tests green. Commit test and production code together when it makes sense.
+
+## Security and scope
+
+- No real card PANs; card data is stubbed (last4, brand, expiry only). No PCI scope claims.
+- No real card network; use a mock acquiring adapter.
+- Authentication: API key in `Authorization: Bearer sk_test_...` when the API layer exists; no OAuth2 production setup required for this portfolio project.
+
+## Events and API
+
+- Domain events match the spec topic and envelope shapes (`payments.events`, etc.).
+- REST error shape: `{ "error": { "code", "message", "param?", "requestId" } }` at the API layer.
+
+When unsure, align with `PayFlow_Specification.docx.txt` in the repo root.

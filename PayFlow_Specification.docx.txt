@@ -1,0 +1,546 @@
+﻿PayFlow — Payment Processing PlatformTechnical Specification v1.0
+
+
+PayFlow
+Payment Processing Platform
+Full Technical Specification  |  Portfolio Project  |  v1.0
+
+
+Stack
+Java 21 · Spring Boot 3
+Apache Kafka · PostgreSQL
+React 18 · TypeScript
+Docker · Kubernetes
+	Methodology
+Domain-Driven Design (DDD)
+Test-Driven Development (TDD)
+Hexagonal Architecture
+Event-Driven Architecture
+	________________
+
+
+1. Project Overview
+PayFlow is a simplified payment processing platform inspired by Stripe. It exposes a REST API that allows merchants to create payment intents, capture or cancel them, issue refunds, and receive asynchronous notifications via webhooks. All domain events are published to Kafka, enabling an event-driven architecture that can be extended with downstream consumers such as fraud detection or analytics.
+
+
+This project is designed as a portfolio piece that demonstrates production-grade engineering practices: Domain-Driven Design with rich aggregates, Test-Driven Development, hexagonal architecture, containerised deployment with Docker and Kubernetes, and real-time event streaming with Apache Kafka.
+
+
+1.1 Goals
+* Implement a realistic payment lifecycle: create → capture → refund → webhook notification
+* Model the domain using DDD aggregates, value objects, and domain events
+* Follow TDD strictly — every feature starts with a failing test
+* Publish domain events to Kafka and consume them asynchronously
+* Expose a clean REST API consumed by a React/TypeScript frontend dashboard
+* Package and deploy all services via Docker Compose and Kubernetes manifests
+
+
+1.2 Out of Scope
+* Real card network integration (Visa/Mastercard) — simulated via a mock adapter
+* PCI DSS compliance — card data is stubbed; no real PANs are processed
+* Multi-currency FX conversion
+* OAuth2 / production-grade auth (basic API key auth is sufficient)
+________________
+
+
+2. Architecture
+PayFlow follows Hexagonal Architecture (also known as Ports and Adapters). The domain layer is completely isolated from frameworks, databases, and messaging infrastructure. All dependencies point inward.
+
+
+2.1 Bounded Contexts
+
+
+Bounded Context
+	Responsibility
+	Payments
+	Core context. Manages the full payment lifecycle. Contains the Payment aggregate.
+	Merchants
+	Manages merchant accounts and API key authentication.
+	Webhooks
+	Manages webhook endpoint registration and delivery with retry logic.
+	Notifications
+	Kafka consumer that processes domain events and triggers webhook delivery.
+	
+
+2.2 High-Level Component Diagram
+
+
+React Dashboard (TypeScript)
+↕  REST / HTTPS
+API Gateway  →  Payment Service  |  Merchant Service  |  Webhook Service
+↕  Domain Events
+Apache Kafka  ←→  Notification Service (consumer)
+↕  JDBC
+PostgreSQL (per-service schema)
+	
+
+2.3 Technology Stack
+
+
+Component
+	Choice & Notes
+	Language (Backend)
+	Java 21 — virtual threads (Project Loom) for high concurrency
+	Framework
+	Spring Boot 3.3 · Spring Web MVC · Spring Data JPA
+	Messaging
+	Apache Kafka 3.7 — domain event streaming
+	Database
+	PostgreSQL 16 — one schema per bounded context
+	Testing
+	JUnit 5 · Mockito · Testcontainers · WireMock
+	Language (Frontend)
+	TypeScript 5 · React 18 · Vite
+	UI Components
+	shadcn/ui · Tailwind CSS · Recharts
+	Containerisation
+	Docker · Docker Compose (local dev)
+	Orchestration
+	Kubernetes (k3s or minikube) + Helm charts
+	CI/CD
+	GitHub Actions — build, test, lint, push image
+	API Docs
+	OpenAPI 3.1 via springdoc-openapi
+	________________
+
+
+3. Domain Model
+3.1 Payment Aggregate
+The Payment aggregate is the core of the system. It enforces all invariants and emits domain events on every state transition.
+
+
+State Machine
+
+
+From State
+	Action
+	To State
+	Domain Event Emitted
+	—
+	create()
+	PENDING
+	PaymentCreatedEvent
+	PENDING
+	capture()
+	CAPTURED
+	PaymentCapturedEvent
+	PENDING
+	cancel()
+	CANCELLED
+	PaymentCancelledEvent
+	CAPTURED
+	refund(amount)
+	REFUNDED / PARTIAL_REFUND
+	PaymentRefundedEvent
+	CAPTURED
+	expire()
+	EXPIRED
+	PaymentExpiredEvent
+	
+
+Value Objects
+* Money — amount (BigDecimal) + currency (ISO 4217). Immutable. Validates non-negative amounts.
+* PaymentId — UUID wrapper. Factory method PaymentId.generate().
+* MerchantId — UUID wrapper. Validated on construction.
+* CardDetails — last4, brand (VISA/MASTERCARD/AMEX), expiryMonth, expiryYear. No PANs stored.
+* PaymentStatus — enum: PENDING, CAPTURED, CANCELLED, REFUNDED, PARTIAL_REFUND, EXPIRED.
+
+
+3.2 Merchant Aggregate
+* Fields: MerchantId, name, email, apiKey (hashed), createdAt, isActive.
+* Domain rule: API key must be hashed with BCrypt before persistence.
+* Events: MerchantCreatedEvent, MerchantDeactivatedEvent.
+
+
+3.3 Webhook Aggregate
+* Fields: WebhookId, MerchantId, url, secret (HMAC key), events (Set<EventType>), isActive.
+* Domain rule: URL must be HTTPS. Max 5 endpoints per merchant.
+* Delivery tracking: WebhookDelivery entity — attempts, lastAttemptAt, status (PENDING/DELIVERED/FAILED).
+* Retry policy: exponential backoff — 5s, 30s, 2m, 10m, 1h. Max 5 attempts.
+________________
+
+
+4. REST API Specification
+4.1 Authentication
+All API requests must include an API key in the Authorization header:
+
+
+Authorization: Bearer sk_test_abc123xyz
+	
+
+4.2 Payments Endpoints
+
+
+Method + Path
+	Description
+	POST /v1/payments
+	Create a payment intent. Returns PENDING payment with a client_secret.
+	GET /v1/payments/:id
+	Retrieve a payment by ID.
+	GET /v1/payments
+	List payments. Supports pagination: ?page=0&size=20. Filter: ?status=CAPTURED.
+	POST /v1/payments/:id/capture
+	Capture a PENDING payment. Idempotent.
+	POST /v1/payments/:id/cancel
+	Cancel a PENDING payment.
+	POST /v1/payments/:id/refunds
+	Issue a full or partial refund on a CAPTURED payment.
+	GET /v1/payments/:id/refunds
+	List all refunds for a payment.
+	
+
+POST /v1/payments — Request Body
+
+
+{
+  "amount": 10000,
+  "currency": "USD",
+  "description": "Order #1042",
+  "card": {
+    "number": "4242424242424242",
+    "expMonth": 12, "expYear": 2027, "cvc": "123"
+  },
+  "metadata": { "orderId": "ORD-789" }
+}
+	
+
+4.3 Webhooks Endpoints
+
+
+Method + Path
+	Description
+	POST /v1/webhooks
+	Register a new webhook endpoint.
+	GET /v1/webhooks
+	List all webhook endpoints for the authenticated merchant.
+	DELETE /v1/webhooks/:id
+	Deactivate a webhook endpoint.
+	GET /v1/webhooks/:id/deliveries
+	List delivery attempts for a webhook endpoint.
+	
+
+4.4 Error Response Format
+
+
+{ "error": {
+    "code": "payment_not_found",
+    "message": "No payment found with id: pay_xyz",
+    "param": "id",
+    "requestId": "req_abc123"
+} }
+	________________
+
+
+5. Kafka Event Schema
+5.1 Topics
+
+
+Topic
+	Purpose
+	payments.events
+	All domain events from the Payment aggregate. Partitioned by merchantId.
+	merchant.events
+	Merchant lifecycle events (created, deactivated).
+	webhook.deliveries
+	Webhook delivery jobs consumed by the Notification Service.
+	webhook.dlq
+	Dead letter queue — failed webhook deliveries after max retries.
+	
+
+5.2 Event Envelope
+
+
+{
+  "eventId": "evt_01HX...",
+  "eventType": "payment.captured",
+  "aggregateId": "pay_xyz",
+  "merchantId": "mer_abc",
+  "occurredAt": "2024-09-01T12:00:00Z",
+  "payload": { /* event-specific data */ }
+}
+	
+
+5.3 Event Types
+
+
+Event Type
+	Payload Fields
+	payment.created
+	{ paymentId, merchantId, amount, currency, status: PENDING }
+	payment.captured
+	{ paymentId, merchantId, amount, currency, capturedAt }
+	payment.cancelled
+	{ paymentId, merchantId, cancelledAt, reason? }
+	payment.refunded
+	{ paymentId, refundId, refundAmount, remainingAmount, isFullRefund }
+	payment.expired
+	{ paymentId, merchantId, expiredAt }
+	merchant.created
+	{ merchantId, name, email, createdAt }
+	merchant.deactivated
+	{ merchantId, deactivatedAt }
+	________________
+
+
+6. Database Schema
+6.1 Payments Schema
+
+
+CREATE TABLE payments (
+  id            VARCHAR(36)    PRIMARY KEY,
+  merchant_id   VARCHAR(36)    NOT NULL,
+  amount        NUMERIC(19,2)  NOT NULL,
+  currency      CHAR(3)        NOT NULL,
+  status        VARCHAR(20)    NOT NULL,
+  description   TEXT,
+  card_last4    CHAR(4),
+  card_brand    VARCHAR(20),
+  metadata      JSONB,
+  created_at    TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
+  captured_at   TIMESTAMPTZ,
+  cancelled_at  TIMESTAMPTZ,
+  expires_at    TIMESTAMPTZ
+);
+
+
+CREATE TABLE refunds (
+  id            VARCHAR(36)    PRIMARY KEY,
+  payment_id    VARCHAR(36)    NOT NULL REFERENCES payments(id),
+  amount        NUMERIC(19,2)  NOT NULL,
+  reason        TEXT,
+  created_at    TIMESTAMPTZ    NOT NULL DEFAULT NOW()
+);
+	
+
+6.2 Outbox Pattern
+To guarantee at-least-once delivery of domain events to Kafka without distributed transactions, PayFlow uses the Transactional Outbox pattern.
+
+
+CREATE TABLE outbox_events (
+  id            UUID           PRIMARY KEY DEFAULT gen_random_uuid(),
+  aggregate_id  VARCHAR(36)    NOT NULL,
+  event_type    VARCHAR(100)   NOT NULL,
+  payload       JSONB          NOT NULL,
+  created_at    TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
+  published_at  TIMESTAMPTZ,
+  published     BOOLEAN        NOT NULL DEFAULT FALSE
+);
+
+
+-- Relay polls: SELECT * FROM outbox_events WHERE published = FALSE ORDER BY created_at LIMIT 100;
+	________________
+
+
+7. Test-Driven Development Strategy
+7.1 Testing Pyramid
+
+
+Layer
+	What to Test
+	Unit Tests (70%)
+	Domain model: Payment, Merchant, Webhook aggregates and value objects. No Spring context. Pure Java.
+	Integration Tests (20%)
+	Repository tests with Testcontainers (PostgreSQL). Service layer with real DB, mocked Kafka.
+	API / E2E Tests (10%)
+	Full Spring Boot context via @SpringBootTest + MockMvc. Testcontainers for DB + Kafka.
+	
+
+7.2 TDD Workflow (Red → Green → Refactor)
+Every feature follows this strict workflow:
+
+
+1. Write a failing test that describes the intended behaviour (Red).
+2. Write the minimum production code to make the test pass (Green).
+3. Refactor the code while keeping all tests green (Refactor).
+4. Commit: test + production code together.
+
+
+7.3 Key Test Scenarios
+
+
+Payment Aggregate Unit Tests
+* Given a valid create command, Payment is initialised in PENDING state and emits PaymentCreatedEvent
+* Given a PENDING payment, capture() transitions to CAPTURED and emits PaymentCapturedEvent
+* Given a CAPTURED payment, capture() throws InvalidStateTransitionException
+* Given a CAPTURED payment, refund(amount > total) throws InsufficientRefundableAmountException
+* Given a partial refund, status is PARTIAL_REFUND; given full refund, status is REFUNDED
+* Given a PENDING payment older than 1h, expire() transitions to EXPIRED
+
+
+Money Value Object Unit Tests
+* Money.of(-1, "USD") throws NegativeAmountException
+* Money.of(10, "XXX") throws InvalidCurrencyException
+* Two Money instances with same amount and currency are equal
+* money.add() and money.subtract() produce correct results
+
+
+API Integration Tests
+* POST /v1/payments returns 201 with PENDING payment
+* POST /v1/payments with invalid currency returns 400 with error code invalid_currency
+* POST /v1/payments/:id/capture is idempotent — calling twice returns same result
+* GET /v1/payments with ?status=CAPTURED filters correctly and respects pagination
+* Unauthenticated request returns 401
+________________
+
+
+8. Project Structure
+
+
+payflow/
+├── backend/
+│   ├── payment-service/
+│   │   └── src/main/java/com/payflow/payment/
+│   │       ├── domain/          # Aggregates, VOs, Events (pure Java)
+│   │       ├── application/     # Use cases / command handlers
+│   │       ├── infrastructure/  # JPA repos, Kafka producers, adapters
+│   │       └── api/             # REST controllers, DTOs, mappers
+│   ├── merchant-service/
+│   │   └── src/main/java/com/payflow/merchant/  (same structure)
+│   ├── webhook-service/
+│   │   └── src/main/java/com/payflow/webhook/   (same structure)
+│   └── notification-service/    # Kafka consumer only
+├── frontend/
+│   ├── src/
+│   │   ├── components/          # Reusable UI components
+│   │   ├── pages/               # Route-level pages
+│   │   ├── hooks/               # Custom React hooks
+│   │   ├── services/            # API client (axios/fetch)
+│   │   └── types/               # TypeScript interfaces
+│   ├── package.json
+│   └── vite.config.ts
+├── infra/
+│   ├── docker-compose.yml       # Local dev: all services + DB + Kafka
+│   └── k8s/                     # Kubernetes manifests
+│       ├── payment-service/
+│       ├── merchant-service/
+│       ├── kafka/
+│       └── postgres/
+├── .github/
+│   └── workflows/
+│       ├── backend-ci.yml
+│       └── frontend-ci.yml
+└── README.md
+	________________
+
+
+9. Frontend — React Dashboard
+9.1 Pages & Features
+
+
+Route
+	Content
+	/ — Overview
+	KPI cards: total volume, transaction count, success rate, refund rate. Volume chart (last 30 days).
+	/payments — Transactions
+	Paginated table of all payments. Filter by status, date range. Click-through to detail.
+	/payments/:id — Detail
+	Full payment detail: status timeline, amount, card info, refund history, raw event log.
+	/refunds — New Refund
+	Form to issue a refund. Full or partial. Confirmation dialog.
+	/webhooks — Endpoints
+	List of registered webhook endpoints. Add/remove. View delivery history per endpoint.
+	/settings — API Keys
+	Show (masked) API key. Regenerate key.
+	
+
+9.2 State Management
+* React Query (TanStack Query) for all server state — caching, refetching, optimistic updates.
+* Zustand for minimal client state (auth token, UI preferences).
+* No Redux — overkill for this scope.
+
+
+9.3 Key Components
+* PaymentStatusBadge — colour-coded chip per payment status.
+* VolumeChart — Recharts AreaChart of daily transaction volume.
+* PaymentTable — virtualised table with react-virtual for large datasets.
+* RefundForm — controlled form with Zod validation, step confirmation.
+* WebhookDeliveryLog — polling component that refreshes every 5s.
+________________
+
+
+10. Infrastructure & Deployment
+10.1 Docker Compose (Local Dev)
+A single docker-compose.yml at the repo root starts the entire local environment:
+* PostgreSQL 16 — one container, multiple schemas per service
+* Kafka (Bitnami) + Zookeeper — single broker for local dev
+* Kafka UI — browse topics and messages at localhost:8080
+* payment-service — port 8081
+* merchant-service — port 8082
+* webhook-service — port 8083
+* notification-service — no exposed port (pure consumer)
+* frontend — Vite dev server at port 3000
+
+
+10.2 Kubernetes Manifests
+
+
+Resource
+	Notes
+	Deployment
+	One Deployment per service. 2 replicas in production. Resource limits defined.
+	Service
+	ClusterIP for internal comms. LoadBalancer for API Gateway.
+	ConfigMap
+	Non-sensitive config: Kafka brokers, DB host, topic names.
+	Secret
+	DB password, API keys (use Kubernetes Secrets or external secrets operator).
+	HPA
+	HorizontalPodAutoscaler on payment-service: scale 2→10 pods on CPU > 60%.
+	PersistentVolumeClaim
+	PostgreSQL data volume.
+	Ingress
+	NGINX ingress controller: route /api/* to backend, /* to frontend.
+	
+
+10.3 GitHub Actions CI/CD
+Two workflows trigger on pull requests and pushes to main:
+
+
+backend-ci.yml
+* Checkout → Setup Java 21 (Temurin) → ./mvnw verify
+* Testcontainers requires Docker socket — use runs-on: ubuntu-latest
+* Upload test results as artifact
+* On merge to main: build Docker image → push to GHCR
+
+
+frontend-ci.yml
+* Checkout → Setup Node 20 → npm ci → npm run lint → npm run test → npm run build
+* On merge to main: build Docker image → push to GHCR
+________________
+
+
+11. Implementation Phases
+
+
+Phase
+	Deliverables
+	Phase 1 — Domain Core(~1 week)
+	Build the Payment aggregate with full state machine. All value objects. 100% unit test coverage on domain layer. No Spring, no DB.
+	Phase 2 — Payment Service(~1 week)
+	Spring Boot app. JPA repositories. REST API for create/capture/cancel. Outbox table. Integration tests with Testcontainers.
+	Phase 3 — Kafka Integration(~3 days)
+	Outbox relay publishes events to Kafka. Notification Service consumer subscribes and logs events. Test with Testcontainers Kafka.
+	Phase 4 — Refunds & Webhooks(~1 week)
+	Refund use case. Webhook service with registration + HMAC-signed delivery. Retry logic with exponential backoff.
+	Phase 5 — Merchant Service(~3 days)
+	Merchant CRUD. API key hashing + authentication filter. Merchant context events.
+	Phase 6 — React Frontend(~1 week)
+	All pages, React Query integration, charts, forms with Zod validation.
+	Phase 7 — Infra & Polish(~3 days)
+	Docker Compose, Kubernetes manifests, GitHub Actions CI, README with architecture diagram.
+	
+
+12. Interview Talking Points
+When discussing this project, lead with these engineering decisions:
+
+
+* Why DDD? — The payment domain has complex invariants and a clear ubiquitous language. DDD forced me to model state transitions explicitly in the aggregate rather than in scattered service methods.
+* Why the Outbox Pattern? — Dual writes (DB + Kafka in one transaction) are unsafe. The outbox guarantees exactly-once write to the DB and at-least-once publish to Kafka, which is the right trade-off.
+* Why Hexagonal Architecture? — The domain layer has zero framework dependencies. I can test all business logic without starting Spring or Kafka, which makes tests fast and deterministic.
+* Why TDD? — For a payment system, correctness is critical. Writing tests first forced me to design the API before the implementation and gave me confidence to refactor the state machine.
+* Why Kafka over direct HTTP webhooks? — Decoupling the event producer from webhook delivery allows independent scaling and retry without blocking the payment flow. The DLQ captures permanently failed deliveries for ops visibility.
+* Why Java 21 virtual threads? — Virtual threads allow high concurrency with a simple blocking I/O model, avoiding the complexity of reactive programming (WebFlux) while still handling thousands of concurrent requests.
+
+
+PayFlow — Full Technical Specification v1.0  |  payflow.dev (portfolio)
+Page  of
