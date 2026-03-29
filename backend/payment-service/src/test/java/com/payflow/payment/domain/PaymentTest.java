@@ -119,6 +119,101 @@ class PaymentTest {
         assertThat(p.peekDomainEvents().getFirst()).isInstanceOf(PaymentCancelledEvent.class);
     }
 
+    @Test
+    void refundFromPendingThrows() {
+        Payment p = newPayment();
+        p.pullDomainEvents();
+        assertThatThrownBy(() -> p.refund(Money.of(new BigDecimal("10.00"), "USD"), T0.plusSeconds(5)))
+                .isInstanceOf(InvalidStateTransitionException.class);
+    }
+
+    @Test
+    void refundFromCancelledThrows() {
+        Payment p = newPayment();
+        p.pullDomainEvents();
+        p.cancel(T0.plusSeconds(1));
+        p.pullDomainEvents();
+        assertThatThrownBy(() -> p.refund(Money.of(new BigDecimal("10.00"), "USD"), T0.plusSeconds(5)))
+                .isInstanceOf(InvalidStateTransitionException.class);
+    }
+
+    @Test
+    void cancelWhenCapturedThrows() {
+        Payment p = capturedPayment();
+        assertThatThrownBy(() -> p.cancel(T0.plusSeconds(5)))
+                .isInstanceOf(InvalidStateTransitionException.class);
+    }
+
+    @Test
+    void captureWhenCancelledThrows() {
+        Payment p = newPayment();
+        p.pullDomainEvents();
+        p.cancel(T0.plusSeconds(1));
+        p.pullDomainEvents();
+        assertThatThrownBy(() -> p.capture(T0.plusSeconds(5)))
+                .isInstanceOf(InvalidStateTransitionException.class);
+    }
+
+    @Test
+    void secondFullRefundAfterRefundedThrows() {
+        Payment p = capturedPayment();
+        p.pullDomainEvents();
+        p.refund(Money.of(new BigDecimal("100.00"), "USD"), T0.plusSeconds(10));
+        p.pullDomainEvents();
+        assertThatThrownBy(() -> p.refund(Money.of(BigDecimal.ONE, "USD"), T0.plusSeconds(11)))
+                .isInstanceOf(InvalidStateTransitionException.class);
+    }
+
+    @Test
+    void pullDomainEventsClearsBuffer() {
+        Payment p = newPayment();
+        assertThat(p.pullDomainEvents()).hasSize(1);
+        assertThat(p.peekDomainEvents()).isEmpty();
+    }
+
+    @Test
+    void multiplePartialRefundsThenFull() {
+        Payment p = capturedPayment();
+        p.pullDomainEvents();
+        p.refund(Money.of(new BigDecimal("30.00"), "USD"), T0.plusSeconds(10));
+        p.pullDomainEvents();
+        assertThat(p.status()).isEqualTo(PaymentStatus.PARTIAL_REFUND);
+        p.refund(Money.of(new BigDecimal("20.00"), "USD"), T0.plusSeconds(11));
+        p.pullDomainEvents();
+        assertThat(p.status()).isEqualTo(PaymentStatus.PARTIAL_REFUND);
+        p.refund(Money.of(new BigDecimal("50.00"), "USD"), T0.plusSeconds(12));
+        assertThat(p.status()).isEqualTo(PaymentStatus.REFUNDED);
+    }
+
+    @Test
+    void refundCurrencyMismatchThrows() {
+        Payment p = capturedPayment();
+        p.pullDomainEvents();
+        assertThatThrownBy(() -> p.refund(Money.of(new BigDecimal("10.00"), "EUR"), T0.plusSeconds(10)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("currency");
+    }
+
+    @Test
+    void accessorsExposeImmutableState() {
+        Payment p = newPayment();
+        assertThat(p.description()).isEqualTo("Order #1");
+        assertThat(p.cardDetails()).isEqualTo(new CardDetails("4242", CardBrand.VISA, 12, 2027));
+        assertThat(p.metadata()).containsEntry("orderId", "ORD-789");
+        assertThat(p.createdAt()).isEqualTo(T0);
+        assertThat(p.expiresAt()).isEqualTo(T0.plus(Duration.ofHours(1)));
+        assertThat(p.cancelledAt()).isEmpty();
+    }
+
+    @Test
+    void cancelledAtAfterCancel() {
+        Payment p = newPayment();
+        p.pullDomainEvents();
+        Instant at = T0.plusSeconds(3);
+        p.cancel(at);
+        assertThat(p.cancelledAt()).contains(at);
+    }
+
     private static Payment newPayment() {
         return Payment.create(
                 MerchantId.of("mer_test"),
