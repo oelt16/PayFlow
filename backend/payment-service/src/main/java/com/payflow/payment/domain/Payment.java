@@ -9,6 +9,7 @@ import com.payflow.payment.domain.exception.InsufficientRefundableAmountExceptio
 import com.payflow.payment.domain.exception.InvalidStateTransitionException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -47,7 +48,10 @@ public final class Payment {
             Map<String, String> metadata,
             Instant createdAt,
             Instant expiresAt,
-            PaymentStatus status
+            PaymentStatus status,
+            Instant capturedAt,
+            Instant cancelledAt,
+            BigDecimal totalRefunded
     ) {
         this.id = id;
         this.merchantId = merchantId;
@@ -58,7 +62,52 @@ public final class Payment {
         this.createdAt = createdAt;
         this.expiresAt = expiresAt;
         this.status = status;
-        this.totalRefunded = BigDecimal.ZERO.setScale(2);
+        this.capturedAt = capturedAt;
+        this.cancelledAt = cancelledAt;
+        this.totalRefunded = totalRefunded != null
+                ? totalRefunded.setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO.setScale(2);
+    }
+
+    /**
+     * Rehydrates a payment from persistence. Does not record domain events.
+     */
+    public static Payment restore(
+            PaymentId id,
+            MerchantId merchantId,
+            Money amount,
+            String description,
+            CardDetails cardDetails,
+            Map<String, String> metadata,
+            Instant createdAt,
+            Instant expiresAt,
+            PaymentStatus status,
+            Instant capturedAt,
+            Instant cancelledAt,
+            BigDecimal totalRefunded
+    ) {
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(merchantId, "merchantId");
+        Objects.requireNonNull(amount, "amount");
+        Objects.requireNonNull(cardDetails, "cardDetails");
+        Objects.requireNonNull(metadata, "metadata");
+        Objects.requireNonNull(createdAt, "createdAt");
+        Objects.requireNonNull(expiresAt, "expiresAt");
+        Objects.requireNonNull(status, "status");
+        return new Payment(
+                id,
+                merchantId,
+                amount,
+                description,
+                cardDetails,
+                metadata,
+                createdAt,
+                expiresAt,
+                status,
+                capturedAt,
+                cancelledAt,
+                totalRefunded
+        );
     }
 
     public static Payment create(
@@ -99,7 +148,10 @@ public final class Payment {
                 metadata,
                 createdAt,
                 expiresAt,
-                PaymentStatus.PENDING
+                PaymentStatus.PENDING,
+                null,
+                null,
+                BigDecimal.ZERO.setScale(2)
         );
         payment.recordEvent(new PaymentCreatedEvent(createdAt, id, merchantId, amount, PaymentStatus.PENDING));
         return payment;
@@ -213,6 +265,10 @@ public final class Payment {
 
     public Optional<Instant> cancelledAt() {
         return Optional.ofNullable(cancelledAt);
+    }
+
+    public BigDecimal totalRefundedAmount() {
+        return totalRefunded;
     }
 
     private void ensurePending() {

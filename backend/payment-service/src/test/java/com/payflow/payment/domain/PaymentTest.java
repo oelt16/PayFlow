@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 
@@ -212,6 +213,50 @@ class PaymentTest {
         Instant at = T0.plusSeconds(3);
         p.cancel(at);
         assertThat(p.cancelledAt()).contains(at);
+    }
+
+    @Test
+    void restoreRehydratesStateWithoutRecordingEvents() {
+        PaymentId id = PaymentId.of("pay_restore1");
+        Instant captured = T0.plusSeconds(2);
+        Payment p = Payment.restore(
+                id,
+                MerchantId.of("mer_test"),
+                Money.of(new BigDecimal("50.00"), "USD"),
+                "Restored",
+                new CardDetails("1234", CardBrand.MASTERCARD, 6, 2028),
+                Collections.emptyMap(),
+                T0,
+                T0.plus(Duration.ofHours(1)),
+                PaymentStatus.CAPTURED,
+                captured,
+                null,
+                BigDecimal.ZERO.setScale(2)
+        );
+        assertThat(p.id()).isEqualTo(id);
+        assertThat(p.status()).isEqualTo(PaymentStatus.CAPTURED);
+        assertThat(p.capturedAt()).contains(captured);
+        assertThat(p.peekDomainEvents()).isEmpty();
+    }
+
+    @Test
+    void restoreNullTotalRefundedNormalizesToZeroScale() {
+        Payment p = Payment.restore(
+                PaymentId.of("pay_restore2"),
+                MerchantId.of("mer_test"),
+                Money.of(new BigDecimal("10.00"), "USD"),
+                null,
+                new CardDetails("9999", CardBrand.VISA, 1, 2030),
+                Map.of(),
+                T0,
+                T0.plus(Duration.ofHours(1)),
+                PaymentStatus.PENDING,
+                null,
+                null,
+                null
+        );
+        assertThat(p.totalRefundedAmount()).isEqualByComparingTo(BigDecimal.ZERO.setScale(2));
+        assertThat(p.description()).isNull();
     }
 
     private static Payment newPayment() {

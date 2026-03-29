@@ -2,6 +2,8 @@
 
 Payment processing platform (portfolio). See [PayFlow_Specification.docx.txt](PayFlow_Specification.docx.txt) for the full technical specification.
 
+**Implementation status, local run, tests, and deployment notes:** [PHASE_IMPLEMENTATION.md](PHASE_IMPLEMENTATION.md).
+
 ## Prerequisites
 
 - **Java 21** — this repo includes [`.java-version`](.java-version) for [jenv](https://github.com/jenv/jenv): run `jenv local 21` in this directory if needed.

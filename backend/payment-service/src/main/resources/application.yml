@@ -1,0 +1,31 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/payflow
+    username: payflow
+    password: payflow
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: payments
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    schemas: payments
+    default-schema: payments
+    create-schemas: true
+
+payflow:
+  security:
+    api-keys:
+      - key: sk_test_dev
+        merchant-id: mer_test_dev
