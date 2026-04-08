@@ -4,6 +4,13 @@ server:
 spring:
   application:
     name: payment-service
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 3
   datasource:
     url: jdbc:postgresql://localhost:5432/payflow
     username: payflow
@@ -25,6 +32,11 @@ spring:
     create-schemas: true
 
 payflow:
+  outbox:
+    poll-interval-ms: 500
+    batch-size: 100
+    topic: payments.events
+    send-timeout-seconds: 30
   security:
     api-keys:
       - key: sk_test_dev

@@ -3,18 +3,24 @@ package com.payflow.payment.integration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
+import java.util.List;
+import java.util.Properties;
+
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -24,19 +30,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
+@ActiveProfiles("test")
 @AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers(disabledWithoutDocker = true)
-class PaymentApiIntegrationTest {
-
-    @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
-
-    @DynamicPropertySource
-    static void registerDatasource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-    }
+class PaymentApiIntegrationTest extends PaymentIntegrationInfrastructure {
 
     @Autowired
     private MockMvc mockMvc;
@@ -46,6 +44,9 @@ class PaymentApiIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private com.payflow.payment.infrastructure.kafka.OutboxRelay outboxRelay;
 
     @Test
     void postPaymentWithoutAuthReturns401() throws Exception {
@@ -156,6 +157,54 @@ class PaymentApiIntegrationTest {
             }
         }
         assertThat(found).isTrue();
+    }
+
+    @Test
+    void postPaymentPublishesPaymentCreatedToKafka() throws Exception {
+        MvcResult created = mockMvc.perform(
+                        post("/v1/payments")
+                                .header("Authorization", "Bearer sk_test_dev")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(validCreateBody("USD"))
+                )
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String paymentId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();
+
+        outboxRelay.publishUnpublishedOutboxEvents();
+
+        ConsumerRecord<String, String> record = pollPaymentCreatedRecord(paymentId);
+        assertThat(record.key()).isEqualTo("mer_test_dev");
+        JsonNode envelope = objectMapper.readTree(record.value());
+        assertThat(envelope.get("eventType").asText()).isEqualTo("payment.created");
+        assertThat(envelope.get("aggregateId").asText()).isEqualTo(paymentId);
+    }
+
+    private ConsumerRecord<String, String> pollPaymentCreatedRecord(String paymentId) {
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, CONTAINER2_KAFKA.getBootstrapServers());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "payment-api-itest-" + System.nanoTime());
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+
+        long deadline = System.currentTimeMillis() + 60_000;
+        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props)) {
+            consumer.subscribe(List.of("payments.events"));
+            while (System.currentTimeMillis() < deadline) {
+                var records = consumer.poll(Duration.ofMillis(500));
+                for (ConsumerRecord<String, String> r : records) {
+                    if (r.value() != null
+                            && r.value().contains("\"eventType\":\"payment.created\"")
+                            && r.value().contains("\"aggregateId\":\"" + paymentId + "\"")) {
+                        return r;
+                    }
+                }
+            }
+        }
+        throw new AssertionError("No payment.created Kafka message for " + paymentId);
     }
 
     private static String validCreateBody(String currency) {

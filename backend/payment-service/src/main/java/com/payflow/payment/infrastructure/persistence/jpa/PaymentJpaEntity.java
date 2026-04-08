@@ -32,6 +32,7 @@ public class PaymentJpaEntity {
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(nullable = false, length = 3)
     private String currency;
 
@@ -42,6 +43,7 @@ public class PaymentJpaEntity {
     @Column(columnDefinition = "text")
     private String description;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "card_last4", length = 4)
     private String cardLast4;
 
@@ -49,9 +51,11 @@ public class PaymentJpaEntity {
     @Column(name = "card_brand", length = 20)
     private CardBrand cardBrand;
 
+    @JdbcTypeCode(SqlTypes.SMALLINT)
     @Column(name = "card_exp_month")
     private Integer cardExpMonth;
 
+    @JdbcTypeCode(SqlTypes.SMALLINT)
     @Column(name = "card_exp_year")
     private Integer cardExpYear;
 
