@@ -7,4 +7,6 @@ import com.payflow.payment.domain.PaymentId;
 public interface AcquiringPort {
 
     void confirmCapture(PaymentId paymentId, Money amount, MerchantId merchantId);
+
+    void confirmRefund(PaymentId paymentId, Money refundAmount, MerchantId merchantId);
 }

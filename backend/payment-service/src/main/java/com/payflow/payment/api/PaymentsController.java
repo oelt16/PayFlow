@@ -2,8 +2,11 @@ package com.payflow.payment.api;
 
 import com.payflow.payment.api.dto.CancelPaymentRequest;
 import com.payflow.payment.api.dto.CreatePaymentRequest;
+import com.payflow.payment.api.dto.CreateRefundRequest;
 import com.payflow.payment.api.dto.PaymentListResponse;
 import com.payflow.payment.api.dto.PaymentResponse;
+import com.payflow.payment.api.dto.RefundListResponse;
+import com.payflow.payment.api.dto.RefundResponse;
 import com.payflow.payment.api.security.MerchantContext;
 import com.payflow.payment.application.CreatePaymentCommand;
 import com.payflow.payment.application.CreatedPaymentResult;
@@ -99,5 +102,27 @@ public class PaymentsController {
         return PaymentApiMapper.toResponse(
                 paymentApplicationService.cancel(MerchantContext.require(), PaymentId.of(id), reason)
         );
+    }
+
+    @PostMapping("/{id}/refunds")
+    public ResponseEntity<RefundResponse> createRefund(
+            @PathVariable String id,
+            @Valid @RequestBody CreateRefundRequest body
+    ) {
+        var refund = paymentApplicationService.refund(
+                MerchantContext.require(),
+                PaymentId.of(id),
+                body.getAmount(),
+                body.getCurrency(),
+                Optional.ofNullable(body.getReason())
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(RefundApiMapper.toResponse(refund));
+    }
+
+    @GetMapping("/{id}/refunds")
+    public RefundListResponse listRefunds(@PathVariable String id) {
+        var list = paymentApplicationService.listRefunds(MerchantContext.require(), PaymentId.of(id));
+        List<RefundResponse> data = list.stream().map(RefundApiMapper::toResponse).collect(Collectors.toList());
+        return new RefundListResponse(data, data.size());
     }
 }

@@ -23,7 +23,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
-@SpringBootTest
+@SpringBootTest(
+        properties = "payflow.webhook-dispatch.enabled=false"
+)
 @Testcontainers(disabledWithoutDocker = true)
 class NotificationConsumerIntegrationTest {
 

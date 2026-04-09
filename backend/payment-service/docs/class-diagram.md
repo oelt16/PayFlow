@@ -21,6 +21,7 @@ classDiagram
     class PaymentId
     class MerchantId
     class RefundId
+    class Refund
     class PaymentStatus <<enumeration>>
     class CardBrand <<enumeration>>
     <<interface>> DomainEvent
@@ -39,6 +40,7 @@ classDiagram
   namespace application {
     class PaymentApplicationService
     <<interface>> PaymentRepository
+    <<interface>> RefundRepository
     <<interface>> DomainEventOutbox
     <<interface>> AcquiringPort
     class ClientSecretGenerator
@@ -54,11 +56,15 @@ classDiagram
   namespace api {
     class PaymentsController
     class PaymentApiMapper <<utility>>
+    class RefundApiMapper <<utility>>
     class CreatePaymentRequest
+    class CreateRefundRequest
     class CardPayload
     class PaymentResponse
     class CardResponse
     class PaymentListResponse
+    class RefundResponse
+    class RefundListResponse
     class CancelPaymentRequest
     class ApiExceptionHandler
     class ApiKeyAuthenticationFilter
@@ -69,9 +75,13 @@ classDiagram
 
   namespace infrastructure.persistence {
     class JpaPaymentRepositoryAdapter
+    class JpaRefundRepositoryAdapter
     class PaymentPersistenceMapper
+    class RefundPersistenceMapper
     class PaymentJpaEntity
     <<interface>> PaymentSpringDataRepository
+    class RefundJpaEntity
+    <<interface>> RefundSpringDataRepository
     class OutboxEventJpaEntity
     <<interface>> OutboxEventSpringDataRepository
   }
@@ -91,6 +101,9 @@ classDiagram
   Payment *-- CardDetails
   Payment *-- PaymentStatus
   Payment o-- DomainEvent : records
+  Refund *-- RefundId
+  Refund *-- PaymentId
+  Refund *-- Money
   CardDetails *-- CardBrand
 
   DomainEvent <|.. PaymentCreatedEvent
@@ -99,6 +112,7 @@ classDiagram
   DomainEvent <|.. PaymentRefundedEvent
   DomainEvent <|.. PaymentExpiredEvent
   PaymentRefundedEvent ..> RefundId
+  PaymentRefundedEvent ..> MerchantId
 
   DomainException <|-- InvalidStateTransitionException
   DomainException <|-- InsufficientRefundableAmountException
@@ -106,6 +120,7 @@ classDiagram
   DomainException <|-- NegativeAmountException
 
   PaymentApplicationService ..> PaymentRepository
+  PaymentApplicationService ..> RefundRepository
   PaymentApplicationService ..> DomainEventOutbox
   PaymentApplicationService ..> AcquiringPort
   PaymentApplicationService ..> ClientSecretGenerator
@@ -116,28 +131,40 @@ classDiagram
   PaymentApplicationService ..> PageRequest
   PaymentApplicationService ..> PageResult
   PaymentApplicationService ..> Payment
+  PaymentApplicationService ..> Refund
   PaymentApplicationService ..> PaymentNotFoundException
 
   PaymentsController ..> PaymentApplicationService
   PaymentsController ..> CreatePaymentCommand
   PaymentsController ..> PaymentApiMapper
   PaymentsController ..> CreatePaymentRequest
+  PaymentsController ..> CreateRefundRequest
   PaymentsController ..> CancelPaymentRequest
+  PaymentsController ..> RefundApiMapper
   CreatePaymentRequest *-- CardPayload
   PaymentResponse *-- CardResponse
   PaymentListResponse o-- PaymentResponse
+  RefundListResponse o-- RefundResponse
   PaymentApiMapper ..> Payment
   PaymentApiMapper ..> MoneyMinorUnits
+  RefundApiMapper ..> Refund
+  RefundApiMapper ..> MoneyMinorUnits
 
   ApiExceptionHandler ..> PaymentNotFoundException
   ApiExceptionHandler ..> DomainException
 
   JpaPaymentRepositoryAdapter ..|> PaymentRepository
+  JpaRefundRepositoryAdapter ..|> RefundRepository
   JpaPaymentRepositoryAdapter ..> PaymentSpringDataRepository
   JpaPaymentRepositoryAdapter ..> PaymentPersistenceMapper
+  JpaRefundRepositoryAdapter ..> RefundSpringDataRepository
+  JpaRefundRepositoryAdapter ..> RefundPersistenceMapper
   PaymentPersistenceMapper ..> Payment
   PaymentPersistenceMapper ..> PaymentJpaEntity
+  RefundPersistenceMapper ..> Refund
+  RefundPersistenceMapper ..> RefundJpaEntity
   PaymentSpringDataRepository ..> PaymentJpaEntity
+  RefundSpringDataRepository ..> RefundJpaEntity
   PaymentJpaEntity ..> PaymentStatus
   PaymentJpaEntity ..> CardBrand
 

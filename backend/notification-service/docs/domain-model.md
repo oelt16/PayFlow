@@ -1,6 +1,8 @@
 # notification-service domain model
 
-This bounded context does **not** define a payment aggregate. It **consumes** events published by `payment-service` on `payments.events`. The only stable “model” in code is the **wire envelope** (`PaymentEventEnvelope`), which mirrors the producer’s JSON contract. No `domain` package exists yet; richer notification rules (templates, channels, idempotency) would live there in later phases.
+This bounded context does **not** own the payment aggregate. It **consumes** JSON envelopes from Kafka topic `payments.events` (same contract as `payment-service` publishes via the outbox relay). The stable in-code contract is **`PaymentEventEnvelope`**.
+
+After a successful parse, the service **forwards** the event to **webhook-service** for endpoint matching and delivery (HTTP from webhook-service to merchant URLs). That forwarding is not part of the payment domain; it is an integration concern implemented in `WebhookDispatchClient`.
 
 ```mermaid
 classDiagram
@@ -15,12 +17,12 @@ classDiagram
     +payload Map~String,Object~
   }
 
-  note for PaymentEventEnvelope "JSON from Kafka; partition key is merchantId at producer.\nSame shape as payment-service PaymentEventEnvelope."
+  note for PaymentEventEnvelope "JSON from Kafka; producer uses merchantId as message key.\nSame conceptual shape as payment-service outbox/Kafka payload envelope."
 ```
 
 ## Event types (consumer expectations)
 
-The unit test [`PaymentEventConsumerTest`](../src/test/java/com/payflow/notification/consumer/PaymentEventConsumerTest.java) accepts these `eventType` values as valid envelope payloads:
+The unit test [`PaymentEventConsumerTest`](../src/test/java/com/payflow/notification/consumer/PaymentEventConsumerTest.java) exercises these `eventType` values:
 
 | `eventType` | Meaning (from payments BC) |
 | --- | --- |
@@ -30,11 +32,16 @@ The unit test [`PaymentEventConsumerTest`](../src/test/java/com/payflow/notifica
 | `payment.refunded` | Refund recorded |
 | `payment.expired` | Pending payment expired |
 
-Malformed JSON is logged at WARN and does not propagate; there is no dead-letter queue in this phase.
+## Behaviour
 
-## Relationship to payment-service
+| Case | Behaviour |
+| --- | --- |
+| Valid JSON → `PaymentEventEnvelope` | Log at INFO; call **webhook-service** dispatch (`WebhookDispatchClient`) when `payflow.webhook-dispatch.enabled` is true |
+| Malformed JSON | Log at WARN; no exception propagation from the listener; no DLQ in this service |
 
-- **Producer:** `payment-service` writes rows to the outbox and `OutboxRelay` publishes JSON matching this envelope.
-- **Consumer:** `notification-service` maps bytes to `PaymentEventEnvelope` and logs; it does not mutate payment state.
+Configure outbound dispatch with `payflow.webhook-dispatch.base-url` and `payflow.webhook-dispatch.enabled` (see [`application.yml`](../src/main/resources/application.yml)).
 
-For the full payment aggregate, value objects, and domain events, see [`payment-service/docs/domain-model.md`](../../payment-service/docs/domain-model.md).
+## Related documentation
+
+- Payment aggregate and events: [`payment-service/docs/domain-model.md`](../../payment-service/docs/domain-model.md)
+- Webhook registration and delivery: [`webhook-service/docs/domain-model.md`](../../webhook-service/docs/domain-model.md)

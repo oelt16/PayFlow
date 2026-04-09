@@ -160,6 +160,83 @@ class PaymentApiIntegrationTest extends PaymentIntegrationInfrastructure {
     }
 
     @Test
+    void refundAfterCapturePersistsRowAndPublishesPaymentRefunded() throws Exception {
+        MvcResult created = mockMvc.perform(
+                        post("/v1/payments")
+                                .header("Authorization", "Bearer sk_test_dev")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(validCreateBody("USD"))
+                )
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.totalRefunded").value(0))
+                .andReturn();
+        String paymentId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();
+
+        mockMvc.perform(
+                        post("/v1/payments/{id}/capture", paymentId)
+                                .header("Authorization", "Bearer sk_test_dev")
+                )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                        post("/v1/payments/{id}/refunds", paymentId)
+                                .header("Authorization", "Bearer sk_test_dev")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"amount\": 3000, \"currency\": \"USD\", \"reason\": \"partial\"}")
+                )
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.amount").value(3000));
+
+        mockMvc.perform(
+                        get("/v1/payments/{id}/refunds", paymentId)
+                                .header("Authorization", "Bearer sk_test_dev")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        Integer refundRows = jdbcTemplate.queryForObject(
+                "select count(*) from payments.refunds where payment_id = ?",
+                Integer.class,
+                paymentId
+        );
+        assertThat(refundRows).isEqualTo(1);
+
+        outboxRelay.publishUnpublishedOutboxEvents();
+
+        ConsumerRecord<String, String> record = pollPaymentRefundedRecord(paymentId);
+        assertThat(record.key()).isEqualTo("mer_test_dev");
+        JsonNode envelope = objectMapper.readTree(record.value());
+        assertThat(envelope.get("eventType").asText()).isEqualTo("payment.refunded");
+        assertThat(envelope.get("aggregateId").asText()).isEqualTo(paymentId);
+    }
+
+    private ConsumerRecord<String, String> pollPaymentRefundedRecord(String paymentId) {
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, CONTAINER2_KAFKA.getBootstrapServers());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "payment-refund-itest-" + System.nanoTime());
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+
+        long deadline = System.currentTimeMillis() + 60_000;
+        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props)) {
+            consumer.subscribe(List.of("payments.events"));
+            while (System.currentTimeMillis() < deadline) {
+                var records = consumer.poll(Duration.ofMillis(500));
+                for (ConsumerRecord<String, String> r : records) {
+                    if (r.value() != null
+                            && r.value().contains("\"eventType\":\"payment.refunded\"")
+                            && r.value().contains("\"aggregateId\":\"" + paymentId + "\"")) {
+                        return r;
+                    }
+                }
+            }
+        }
+        throw new AssertionError("No payment.refunded Kafka message for " + paymentId);
+    }
+
+    @Test
     void postPaymentPublishesPaymentCreatedToKafka() throws Exception {
         MvcResult created = mockMvc.perform(
                         post("/v1/payments")

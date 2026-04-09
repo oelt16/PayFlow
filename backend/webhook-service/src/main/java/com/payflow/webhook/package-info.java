@@ -1,4 +1,4 @@
 /**
- * Webhooks bounded context (implementation in later phases).
+ * Webhooks bounded context; registration, HMAC delivery, retries, DLQ.
  */
 package com.payflow.webhook;

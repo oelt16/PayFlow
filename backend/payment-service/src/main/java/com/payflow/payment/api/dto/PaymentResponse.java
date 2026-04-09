@@ -14,6 +14,8 @@ public record PaymentResponse(
         String createdAt,
         String expiresAt,
         String capturedAt,
-        String cancelledAt
+        String cancelledAt,
+        long totalRefunded,
+        long amountRefunded
 ) {
 }

@@ -29,6 +29,13 @@ classDiagram
   class Money <<value object>>
   class CardDetails <<value object>>
   class RefundId <<value object>>
+  class Refund <<line item>> {
+    +id() RefundId
+    +paymentId() PaymentId
+    +amount() Money
+    +reason() Optional~String~
+    +createdAt() Instant
+  }
 
   class PaymentStatus <<enumeration>>
   class CardBrand <<enumeration>>
@@ -53,6 +60,11 @@ classDiagram
   Payment *-- PaymentStatus
   Payment o-- "0..*" DomainEvent : pending events
 
+  Refund *-- RefundId
+  Refund *-- PaymentId
+  Refund *-- Money
+  note for Refund "Persisted line item; not the aggregate root.\nCreated by application after Payment.refund()."
+
   CardDetails *-- CardBrand
 
   DomainEvent <|.. PaymentCreatedEvent
@@ -74,6 +86,7 @@ classDiagram
   PaymentCancelledEvent ..> MerchantId
 
   PaymentRefundedEvent ..> PaymentId
+  PaymentRefundedEvent ..> MerchantId
   PaymentRefundedEvent ..> RefundId
   PaymentRefundedEvent ..> Money
 

@@ -14,4 +14,9 @@ public class NoOpAcquiringAdapter implements AcquiringPort {
     public void confirmCapture(PaymentId paymentId, Money amount, MerchantId merchantId) {
         // Simulated acquirer: always succeeds (no network).
     }
+
+    @Override
+    public void confirmRefund(PaymentId paymentId, Money refundAmount, MerchantId merchantId) {
+        // Simulated acquirer: always succeeds (no network).
+    }
 }

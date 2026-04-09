@@ -4,12 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.payflow.notification.event.PaymentEventEnvelope;
+import com.payflow.notification.webhook.WebhookDispatchClient;
 
 import java.time.Instant;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 
@@ -23,7 +25,7 @@ class PaymentEventConsumerTest {
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        consumer = new PaymentEventConsumer(objectMapper);
+        consumer = new PaymentEventConsumer(objectMapper, Mockito.mock(WebhookDispatchClient.class));
     }
 
     @Test

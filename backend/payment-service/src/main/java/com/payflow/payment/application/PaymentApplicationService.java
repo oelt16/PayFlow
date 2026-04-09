@@ -8,14 +8,19 @@ import com.payflow.payment.application.pagination.PageResult;
 import com.payflow.payment.application.port.AcquiringPort;
 import com.payflow.payment.application.port.DomainEventOutbox;
 import com.payflow.payment.application.port.PaymentRepository;
+import com.payflow.payment.application.port.RefundRepository;
 import com.payflow.payment.domain.CardDetails;
+import com.payflow.payment.domain.DomainEvent;
 import com.payflow.payment.domain.MerchantId;
 import com.payflow.payment.domain.Money;
 import com.payflow.payment.domain.Payment;
 import com.payflow.payment.domain.PaymentId;
 import com.payflow.payment.domain.PaymentStatus;
+import com.payflow.payment.domain.Refund;
+import com.payflow.payment.domain.event.PaymentRefundedEvent;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -26,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentApplicationService {
 
     private final PaymentRepository paymentRepository;
+    private final RefundRepository refundRepository;
     private final DomainEventOutbox outboxAppender;
     private final AcquiringPort acquiringPort;
     private final ClientSecretGenerator clientSecretGenerator;
@@ -33,12 +39,14 @@ public class PaymentApplicationService {
 
     public PaymentApplicationService(
             PaymentRepository paymentRepository,
+            RefundRepository refundRepository,
             DomainEventOutbox outboxAppender,
             AcquiringPort acquiringPort,
             ClientSecretGenerator clientSecretGenerator,
             Clock clock
     ) {
         this.paymentRepository = paymentRepository;
+        this.refundRepository = refundRepository;
         this.outboxAppender = outboxAppender;
         this.acquiringPort = acquiringPort;
         this.clientSecretGenerator = clientSecretGenerator;
@@ -95,5 +103,47 @@ public class PaymentApplicationService {
         paymentRepository.update(payment);
         outboxAppender.append(payment.id().value(), payment.pullDomainEvents());
         return payment;
+    }
+
+    @Transactional
+    public Refund refund(
+            MerchantId merchantId,
+            PaymentId paymentId,
+            long amountMinor,
+            String currency,
+            Optional<String> reason
+    ) {
+        Payment payment = paymentRepository
+                .findByIdAndMerchantId(paymentId, merchantId)
+                .orElseThrow(() -> new PaymentNotFoundException(paymentId.value()));
+        Money refundMoney = MoneyMinorUnits.toMoney(amountMinor, currency);
+        acquiringPort.confirmRefund(paymentId, refundMoney, merchantId);
+        payment.refund(refundMoney, clock.instant());
+        List<DomainEvent> events = payment.pullDomainEvents();
+        if (events.size() != 1 || !(events.getFirst() instanceof PaymentRefundedEvent e)) {
+            throw new IllegalStateException("Expected single PaymentRefundedEvent");
+        }
+        Optional<String> reasonOpt = reason
+                .map(String::trim)
+                .filter(s -> !s.isEmpty());
+        Refund refund = new Refund(
+                e.refundId(),
+                paymentId,
+                e.refundAmount(),
+                reasonOpt,
+                e.occurredAt()
+        );
+        refundRepository.insert(refund);
+        paymentRepository.update(payment);
+        outboxAppender.append(payment.id().value(), events);
+        return refund;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Refund> listRefunds(MerchantId merchantId, PaymentId paymentId) {
+        Payment payment = paymentRepository
+                .findByIdAndMerchantId(paymentId, merchantId)
+                .orElseThrow(() -> new PaymentNotFoundException(paymentId.value()));
+        return refundRepository.findByPaymentId(paymentId, payment.amount().currency());
     }
 }

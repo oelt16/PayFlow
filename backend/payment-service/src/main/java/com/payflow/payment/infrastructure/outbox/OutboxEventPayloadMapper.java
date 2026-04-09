@@ -4,6 +4,7 @@ import com.payflow.payment.domain.DomainEvent;
 import com.payflow.payment.domain.event.PaymentCancelledEvent;
 import com.payflow.payment.domain.event.PaymentCapturedEvent;
 import com.payflow.payment.domain.event.PaymentCreatedEvent;
+import com.payflow.payment.domain.event.PaymentRefundedEvent;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -22,6 +23,9 @@ public class OutboxEventPayloadMapper {
         }
         if (event instanceof PaymentCancelledEvent) {
             return "payment.cancelled";
+        }
+        if (event instanceof PaymentRefundedEvent) {
+            return "payment.refunded";
         }
         throw new IllegalArgumentException("Unsupported domain event: " + event.getClass().getName());
     }
@@ -51,6 +55,16 @@ public class OutboxEventPayloadMapper {
             m.put("merchantId", e.merchantId().value());
             m.put("cancelledAt", e.cancelledAt().toString());
             e.reason().ifPresent(r -> m.put("reason", r));
+            return m;
+        }
+        if (event instanceof PaymentRefundedEvent e) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("merchantId", e.merchantId().value());
+            m.put("paymentId", e.paymentId().value());
+            m.put("refundId", e.refundId().value());
+            m.put("refundAmount", e.refundAmount().amount());
+            m.put("remainingAmount", e.remainingAmount().amount());
+            m.put("isFullRefund", e.fullRefund());
             return m;
         }
         throw new IllegalArgumentException("Unsupported domain event: " + event.getClass().getName());

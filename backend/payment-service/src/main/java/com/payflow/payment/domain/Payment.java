@@ -200,7 +200,7 @@ public final class Payment {
         Money remaining = amount.subtract(Money.of(totalRefunded, amount.currency()));
         boolean fullRefund = remaining.amount().compareTo(BigDecimal.ZERO) == 0;
         this.status = fullRefund ? PaymentStatus.REFUNDED : PaymentStatus.PARTIAL_REFUND;
-        recordEvent(new PaymentRefundedEvent(now, id, refundId, refundAmount, remaining, fullRefund));
+        recordEvent(new PaymentRefundedEvent(now, id, merchantId, refundId, refundAmount, remaining, fullRefund));
     }
 
     public void expire(Instant now) {

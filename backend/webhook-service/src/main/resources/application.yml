@@ -1,0 +1,38 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: webhook-service
+  kafka:
+    bootstrap-servers: localhost:9092
+  datasource:
+    url: jdbc:postgresql://localhost:5432/payflow?currentSchema=webhooks
+    username: payflow
+    password: payflow
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: webhooks
+  flyway:
+    enabled: true
+    schemas: webhooks
+    default-schema: webhooks
+    locations: classpath:db/migration
+
+payflow:
+  security:
+    api-keys:
+      - key: sk_test_dev
+        merchant-id: mer_test_dev
+  webhook:
+    max-endpoints-per-merchant: 5
+    signature-header: Payflow-Signature
+    retry-poll-ms: 5000
+  kafka:
+    dlq-topic: webhook.dlq
+  internal:
+    dispatch-enabled: true

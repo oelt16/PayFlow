@@ -3,6 +3,7 @@ package com.payflow.payment.api;
 import com.payflow.payment.api.security.RequestIdFilter;
 import com.payflow.payment.application.exception.PaymentNotFoundException;
 import com.payflow.payment.domain.exception.DomainException;
+import com.payflow.payment.domain.exception.InsufficientRefundableAmountException;
 import com.payflow.payment.domain.exception.InvalidCurrencyException;
 import com.payflow.payment.domain.exception.InvalidStateTransitionException;
 import com.payflow.payment.domain.exception.NegativeAmountException;
@@ -54,6 +55,14 @@ public class ApiExceptionHandler {
     @ExceptionHandler(NegativeAmountException.class)
     public ResponseEntity<Map<String, Object>> negativeAmount(NegativeAmountException ex, HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "invalid_amount", ex.getMessage(), "amount", request);
+    }
+
+    @ExceptionHandler(InsufficientRefundableAmountException.class)
+    public ResponseEntity<Map<String, Object>> insufficientRefundable(
+            InsufficientRefundableAmountException ex,
+            HttpServletRequest request
+    ) {
+        return error(HttpStatus.BAD_REQUEST, "insufficient_refundable_amount", ex.getMessage(), "amount", request);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

@@ -70,6 +70,7 @@ class PaymentTest {
         assertThat(p.status()).isEqualTo(PaymentStatus.PARTIAL_REFUND);
         assertThat(p.peekDomainEvents().getFirst()).isInstanceOf(PaymentRefundedEvent.class);
         PaymentRefundedEvent e = (PaymentRefundedEvent) p.peekDomainEvents().getFirst();
+        assertThat(e.merchantId()).isEqualTo(MerchantId.of("mer_test"));
         assertThat(e.fullRefund()).isFalse();
         assertThat(e.remainingAmount()).isEqualTo(Money.of(new BigDecimal("60.00"), "USD"));
     }
@@ -81,6 +82,7 @@ class PaymentTest {
         p.refund(Money.of(new BigDecimal("100.00"), "USD"), T0.plusSeconds(10));
         assertThat(p.status()).isEqualTo(PaymentStatus.REFUNDED);
         PaymentRefundedEvent e = (PaymentRefundedEvent) p.peekDomainEvents().getFirst();
+        assertThat(e.merchantId()).isEqualTo(MerchantId.of("mer_test"));
         assertThat(e.fullRefund()).isTrue();
         assertThat(e.remainingAmount()).isEqualTo(Money.of(BigDecimal.ZERO, "USD"));
     }
