@@ -1,52 +1,57 @@
 # merchant-service class diagram
 
-The **merchant-service** Maven module exists for multi-module layout; **implementation is deferred** to Phase 5 per the PayFlow specification.
-
-No Spring Boot application, REST controllers, or infrastructure adapters are present yet. This diagram reserves the expected hexagonal layout.
+Hexagonal layout under `com.payflow.merchant`:
 
 ```mermaid
 classDiagram
   direction TB
 
-  namespace future_domain {
-    class Merchant <<aggregate root>> {
-      <<Phase 5>>
-    }
-    class MerchantId <<value object>> {
-      <<Phase 5>>
-    }
+  namespace domain {
+    class Merchant <<aggregate root>>
+    class MerchantId <<value object>>
+    class ApiKeyHash <<value object>>
+    class MerchantCreatedEvent
+    class MerchantDeactivatedEvent
   }
 
-  namespace future_application {
-    class MerchantApplicationService {
-      <<Phase 5>>
-    }
-    class MerchantRepository {
-      <<interface>>
-    }
+  namespace application {
+    class MerchantApplicationService
+    interface MerchantRepository
+    interface DomainEventOutbox
+    interface ApiKeyHasher
   }
 
-  note for MerchantRepository "Phase 5 persistence port"
-
-  namespace future_api {
-    class MerchantsController {
-      <<Phase 5>>
-    }
+  namespace api {
+    class MerchantsController
+    class ApiKeyAuthenticationFilter
+    class MerchantContext
+    class ApiExceptionHandler
   }
 
-  namespace future_infrastructure {
-    class JpaMerchantRepositoryAdapter {
-      <<Phase 5>>
-    }
+  namespace infrastructure {
+    class JpaMerchantRepositoryAdapter
+    class TransactionalOutboxAppender
+    class OutboxRelay
+    class BCryptApiKeyHasher
   }
 
-  Merchant ..> MerchantId
+  Merchant --> MerchantId
+  Merchant --> ApiKeyHash
   MerchantApplicationService ..> MerchantRepository
-  MerchantsController ..> MerchantApplicationService
+  MerchantApplicationService ..> DomainEventOutbox
+  MerchantApplicationService ..> ApiKeyHasher
+  MerchantsController --> MerchantApplicationService
+  ApiKeyAuthenticationFilter --> MerchantApplicationService
   JpaMerchantRepositoryAdapter ..|> MerchantRepository
+  TransactionalOutboxAppender ..|> DomainEventOutbox
+  BCryptApiKeyHasher ..|> ApiKeyHasher
 ```
 
-## Notes
+## REST (public)
 
-- Replace this file when Phase 5 adds real types under `src/main/java/com/payflow/merchant/`.
-- Until then, see [`domain-model.md`](domain-model.md) for the intended domain sketch.
+| Method | Path | Auth |
+|--------|------|------|
+| `POST` | `/v1/merchants` | None (registration) |
+| `GET` | `/v1/merchants/me` | Bearer API key |
+| `DELETE` | `/v1/merchants/me` | Bearer API key |
+| `POST` | `/v1/merchants/me/api-keys` | Bearer API key |
