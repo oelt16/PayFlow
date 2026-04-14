@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webhook-service-config
+  namespace: payflow
+  labels:
+    app.kubernetes.io/part-of: payflow
+    app.kubernetes.io/component: webhook-service
+data:
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092

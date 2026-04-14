@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: merchant-service-config
+  namespace: payflow
+  labels:
+    app.kubernetes.io/part-of: payflow
+    app.kubernetes.io/component: merchant-service
+data:
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092

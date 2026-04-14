@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: merchant-service
+  namespace: payflow
+  labels:
+    app.kubernetes.io/part-of: payflow
+    app.kubernetes.io/component: merchant-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: merchant-service
+  template:
+    metadata:
+      labels:
+        app: merchant-service
+        app.kubernetes.io/part-of: payflow
+    spec:
+      containers:
+        - name: merchant-service
+          image: ghcr.io/myorg/payflow/merchant-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+          envFrom:
+            - configMapRef:
+                name: merchant-service-config
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/payflow
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: payflow-db
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: payflow-db
+                  key: POSTGRES_PASSWORD
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 250m
+            limits:
+              memory: 1Gi
+              cpu: "1"

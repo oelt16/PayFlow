@@ -1,0 +1,22 @@
+# Requires an NGINX Ingress Controller (for example ingress-nginx).
+# Traffic hits the SPA; nginx inside the frontend pod proxies /api/* to payment, merchant, and webhook services.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: payflow
+  namespace: payflow
+  labels:
+    app.kubernetes.io/part-of: payflow
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: payflow.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000

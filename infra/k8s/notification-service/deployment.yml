@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: payflow
+  labels:
+    app.kubernetes.io/part-of: payflow
+    app.kubernetes.io/component: notification-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+        app.kubernetes.io/part-of: payflow
+    spec:
+      containers:
+        - name: notification-service
+          image: ghcr.io/myorg/payflow/notification-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8084
+          envFrom:
+            - configMapRef:
+                name: notification-service-config
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: "1"

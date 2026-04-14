@@ -1,0 +1,13 @@
+# Optional: extend with init SQL if you need roles beyond POSTGRES_USER from Secret payflow-db.
+# PayFlow services use Flyway; this ConfigMap is a placeholder for ops-specific bootstrap.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: payflow
+  labels:
+    app.kubernetes.io/part-of: payflow
+data:
+  README: |
+    POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB come from Secret payflow-db.
+    Flyway creates schemas payments, merchants, and webhooks on first service start.

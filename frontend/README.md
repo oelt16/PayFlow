@@ -1,73 +1,33 @@
-# React + TypeScript + Vite
+# PayFlow frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Merchant dashboard for PayFlow: payments, refunds, webhooks, and API key settings.
 
-Currently, two official plugins are available:
+## Requirements
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Node.js 20+** (repo [`.nvmrc`](../.nvmrc))
 
-## React Compiler
+## Scripts
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Vite dev server (default port 5173) with `/api` → backend proxy |
+| `npm run build` | Typecheck + production bundle |
+| `npm run preview` | Preview production build |
+| `npm run test` | Vitest (jsdom) |
+| `npm run lint` | ESLint |
 
-## Expanding the ESLint configuration
+## Local API
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+The app calls **`/api` only** (no host or ports in source). With `npm run dev`, [`vite.config.ts`](vite.config.ts) proxies:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- `/api/v1/payments` → `http://localhost:8081`
+- `/api/v1/merchants` → `http://localhost:8082`
+- `/api/v1/webhooks` → `http://localhost:8083`
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Start those services locally (and Postgres) before using the dashboard.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Stack
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+React 19, TypeScript, Vite, TanStack Query, Zustand, Zod, axios, Tailwind v4, shadcn/ui, Recharts, React Router.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+See [PHASE6_REACT_FRONTEND.md](../PHASE6_REACT_FRONTEND.md) for phase scope and auth notes.
