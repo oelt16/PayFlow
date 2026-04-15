@@ -4,7 +4,7 @@ import com.payflow.webhook.domain.MerchantId;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -24,16 +24,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 
-    private final Map<String, MerchantId> keyToMerchant;
+    private final JdbcApiKeyAuthenticator jdbcApiKeyAuthenticator;
     private final ObjectMapper objectMapper;
 
-    public ApiKeyAuthenticationFilter(PayflowSecurityProperties properties, ObjectMapper objectMapper) {
-        this.keyToMerchant = properties.getApiKeys().stream()
-                .filter(e -> e.getKey() != null && e.getMerchantId() != null)
-                .collect(Collectors.toUnmodifiableMap(
-                        e -> e.getKey().trim(),
-                        e -> MerchantId.of(e.getMerchantId().trim())
-                ));
+    public ApiKeyAuthenticationFilter(JdbcApiKeyAuthenticator jdbcApiKeyAuthenticator, ObjectMapper objectMapper) {
+        this.jdbcApiKeyAuthenticator = jdbcApiKeyAuthenticator;
         this.objectMapper = objectMapper;
     }
 
@@ -54,13 +49,13 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         String token = auth.substring("Bearer ".length()).trim();
-        MerchantId merchantId = keyToMerchant.get(token);
-        if (merchantId == null) {
+        Optional<MerchantId> merchantId = jdbcApiKeyAuthenticator.resolveMerchantId(token);
+        if (merchantId.isEmpty()) {
             writeUnauthorized(response, request, "invalid_api_key", "Unknown API key");
             return;
         }
         try {
-            MerchantContext.set(merchantId);
+            MerchantContext.set(merchantId.get());
             filterChain.doFilter(request, response);
         } finally {
             MerchantContext.clear();

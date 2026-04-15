@@ -1,6 +1,5 @@
 package com.payflow.webhook;
 
-import com.payflow.webhook.api.security.PayflowSecurityProperties;
 import com.payflow.webhook.application.InternalDispatchProperties;
 import com.payflow.webhook.application.KafkaTopicProperties;
 import com.payflow.webhook.application.WebhookProperties;
@@ -13,7 +12,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @EnableScheduling
 @EnableConfigurationProperties({
-        PayflowSecurityProperties.class,
         WebhookProperties.class,
         InternalDispatchProperties.class,
         KafkaTopicProperties.class

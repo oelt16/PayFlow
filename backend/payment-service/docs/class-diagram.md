@@ -70,7 +70,7 @@ classDiagram
     class ApiKeyAuthenticationFilter
     class RequestIdFilter
     class MerchantContext
-    class PayflowSecurityProperties
+    class JdbcApiKeyAuthenticator
   }
 
   namespace infrastructure.persistence {

@@ -10,6 +10,8 @@ spring:
     url: jdbc:postgresql://localhost:5432/payflow?currentSchema=webhooks
     username: payflow
     password: payflow
+    hikari:
+      connection-init-sql: CREATE SCHEMA IF NOT EXISTS merchants
   jpa:
     hibernate:
       ddl-auto: validate
@@ -24,10 +26,6 @@ spring:
     locations: classpath:db/migration
 
 payflow:
-  security:
-    api-keys:
-      - key: sk_test_dev
-        merchant-id: mer_test_dev
   webhook:
     max-endpoints-per-merchant: 5
     signature-header: Payflow-Signature

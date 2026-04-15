@@ -10,7 +10,7 @@ export function useOverviewPayments(enabled: boolean) {
     enabled,
     staleTime: 60_000,
     queryFn: async () => {
-      const size = 200
+      const size = 100
       const maxPages = 10
       let page = 0
       const all = []

@@ -142,8 +142,7 @@ export function SettingsPage() {
             <p className="text-muted-foreground text-sm">Loading…</p>
           ) : meError ? (
             <p className="text-destructive text-sm">
-              Profile unavailable. Payment and webhook keys may still use static dev keys on those
-              services; use a key that matches your running stack.
+              Profile unavailable. Check the API key and that merchant-service is reachable.
             </p>
           ) : me ? (
             <dl className="grid gap-2 text-sm">
@@ -190,8 +189,7 @@ export function SettingsPage() {
             </Button>
           </div>
           <p className="text-muted-foreground text-xs">
-            Rotating replaces your key in merchant-service. Update payment-service and webhook-service
-            dev config if those still use static keys.
+            Rotating replaces your key everywhere; save the new key before leaving this page.
           </p>
         </CardContent>
       </Card>

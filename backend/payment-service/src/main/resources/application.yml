@@ -16,6 +16,8 @@ spring:
     username: payflow
     password: payflow
     driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-init-sql: CREATE SCHEMA IF NOT EXISTS merchants
   jpa:
     hibernate:
       ddl-auto: validate
@@ -37,7 +39,3 @@ payflow:
     batch-size: 100
     topic: payments.events
     send-timeout-seconds: 30
-  security:
-    api-keys:
-      - key: sk_test_dev
-        merchant-id: mer_test_dev

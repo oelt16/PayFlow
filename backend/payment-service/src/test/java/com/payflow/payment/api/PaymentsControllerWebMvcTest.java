@@ -1,5 +1,6 @@
 package com.payflow.payment.api;
 
+import com.payflow.payment.api.security.JdbcApiKeyAuthenticator;
 import com.payflow.payment.api.security.MerchantContext;
 import com.payflow.payment.application.CreatePaymentCommand;
 import com.payflow.payment.application.CreatedPaymentResult;
@@ -53,6 +54,9 @@ class PaymentsControllerWebMvcTest {
 
     @MockBean
     private PaymentApplicationService paymentApplicationService;
+
+    @MockBean
+    private JdbcApiKeyAuthenticator jdbcApiKeyAuthenticator;
 
     @BeforeEach
     void merchantContext() {

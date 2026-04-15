@@ -6,4 +6,4 @@ Spring Boot service for the **Merchants** bounded context: registration, DB-back
 - **Schema:** PostgreSQL `merchants` (Flyway `V1__merchants_schema.sql`)
 - **Run:** from `backend/`: `./mvnw -pl merchant-service spring-boot:run`
 
-Payment and webhook services continue to use static `payflow.security.api-keys` in their own configs; this service is the source of truth for merchant records and key hashing.
+Payment and webhook services validate the same Bearer key against `merchants.merchants` (read-only); this service owns writes and key hashing for that table.
