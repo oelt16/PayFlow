@@ -13,7 +13,7 @@ export const paymentResponseSchema = z.object({
   currency: z.string(),
   status: z.string(),
   description: z.string().nullable().optional(),
-  clientSecret: z.string().optional(),
+  clientSecret: z.string().nullable().optional(),
   metadata: z.record(z.string(), z.string()).optional(),
   card: cardResponseSchema.nullable().optional(),
   createdAt: z.string(),

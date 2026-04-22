@@ -6,6 +6,7 @@ import {
   registerMerchant,
   rotateApiKey,
 } from '@/services/merchants'
+import { useAuthStore } from '@/stores/auth-store'
 
 export const merchantKeys = {
   me: ['merchant', 'me'] as const,
@@ -24,7 +25,8 @@ export function useRegisterMerchant() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: registerMerchant,
-    onSuccess: () => {
+    onSuccess: (data) => {
+      useAuthStore.getState().setApiKey(data.apiKey)
       void qc.invalidateQueries({ queryKey: merchantKeys.me })
     },
   })
@@ -34,7 +36,8 @@ export function useRotateApiKey() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: rotateApiKey,
-    onSuccess: () => {
+    onSuccess: (data) => {
+      useAuthStore.getState().setApiKey(data.apiKey)
       void qc.invalidateQueries({ queryKey: merchantKeys.me })
     },
   })

@@ -113,11 +113,10 @@ export function SettingsPage() {
             disabled={registerMut.isPending}
             onClick={async () => {
               try {
-                const res = await registerMut.mutateAsync({
+                await registerMut.mutateAsync({
                   name: regName.trim(),
                   email: regEmail.trim(),
                 })
-                setApiKey(res.apiKey)
                 setRegName('')
                 setRegEmail('')
               } catch (e) {
@@ -178,8 +177,7 @@ export function SettingsPage() {
               disabled={!isAuthed || rotateMut.isPending}
               onClick={async () => {
                 try {
-                  const res = await rotateMut.mutateAsync()
-                  setApiKey(res.apiKey)
+                  await rotateMut.mutateAsync()
                 } catch (e) {
                   toastApiError(e)
                 }
