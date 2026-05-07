@@ -1,0 +1,35 @@
+info:
+  name: Create Payment (demoshop3)
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:3000/api/v1/payments
+  headers:
+    - name: Authorization
+      value: Bearer sk_test_d84b587c44d463b359d141c4f922ad88
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "amount": 10000,
+        "currency": "USD",
+        "description": "Test",
+        "card": {
+          "number": "4242424242424242",
+          "expMonth": 12,
+          "expYear": 2027,
+          "cvc": "123"
+        },
+        "metadata": {}
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

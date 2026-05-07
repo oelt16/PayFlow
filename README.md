@@ -54,6 +54,30 @@ Then open **http://localhost:3000** for the dashboard, **http://localhost:8080**
 
 Optional: copy [.env.example](.env.example) to `.env` and adjust ports or Postgres credentials.
 
+## Usage
+
+### Starting the environment
+
+```bash
+docker compose -f infra/docker-compose.yml up --build
+```
+
+### Stopping the environment
+
+```bash
+docker compose -f infra/docker-compose.yml down
+```
+
+### Testing the application
+
+Most functionalities can be tested through the frontend dashboard at **http://localhost:3000**. However, payment creation is not currently available from the UI. To create payments, use one of the following methods:
+
+- **Bruno**: Import the collection from the `bruno/` directory
+- **curl**: Send POST requests directly to the API (e.g., `curl -X POST http://localhost:8081/api/payments ...`)
+- Any HTTP client of your choice
+
+The API runs behind nginx which proxies `/api/*` to the backend services.
+
 ## Prerequisites
 
 - **Java 21** — [`.java-version`](.java-version) for [jenv](https://github.com/jenv/jenv): run `jenv local 21` in this directory if needed.
