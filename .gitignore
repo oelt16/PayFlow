@@ -35,3 +35,6 @@ Thumbs.db
 # Logs / coverage
 *.log
 coverage/
+
+# ATL (Agent Task Layer) artifacts
+.atl/
