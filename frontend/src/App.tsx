@@ -7,6 +7,7 @@ import { NotFoundPage } from '@/pages/NotFoundPage'
 import { OverviewPage } from '@/pages/OverviewPage'
 import { PaymentDetailPage } from '@/pages/PaymentDetailPage'
 import { PaymentsPage } from '@/pages/PaymentsPage'
+import { CreatePaymentPage } from '@/pages/CreatePaymentPage'
 import { RefundPage } from '@/pages/RefundPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { WebhooksPage } from '@/pages/WebhooksPage'
@@ -29,6 +30,7 @@ export default function App() {
           <Route element={<RequireAuth />}>
             <Route index element={<OverviewPage />} />
             <Route path="payments" element={<PaymentsPage />} />
+            <Route path="payments/new" element={<CreatePaymentPage />} />
             <Route path="payments/:id" element={<PaymentDetailPage />} />
             <Route path="refunds" element={<RefundPage />} />
             <Route path="webhooks" element={<WebhooksPage />} />

@@ -98,7 +98,59 @@ export function useCreatePayment() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: CreatePaymentBody) => createPayment(body),
-    onSuccess: () => {
+    onMutate: async (newPayment) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await qc.cancelQueries({ queryKey: paymentsKeys.all })
+
+      // Snapshot the previous value for rollback
+      const previousPayments = qc.getQueryData(paymentsKeys.list(0, 20, ''))
+
+      // Optimistically update the payments list
+      const optimisticPayment = {
+        id: `temp_${Date.now()}`,
+        amount: newPayment.amount,
+        currency: newPayment.currency,
+        status: 'PENDING',
+        description: null,
+        clientSecret: null,
+        metadata: newPayment.metadata ?? {},
+        card: {
+          last4: newPayment.card.number.slice(-4),
+          brand: 'Unknown',
+          expMonth: newPayment.card.expMonth,
+          expYear: newPayment.card.expYear,
+        },
+        createdAt: new Date().toISOString(),
+        expiresAt: null,
+        capturedAt: null,
+        cancelledAt: null,
+        totalRefunded: 0,
+        amountRefunded: 0,
+      }
+
+      qc.setQueryData<{ content: unknown[]; totalElements: number }>(
+        paymentsKeys.list(0, 20, ''),
+        (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            content: [optimisticPayment, ...old.content],
+            totalElements: old.totalElements + 1,
+          }
+        },
+      )
+
+      // Return context with previous value for rollback
+      return { previousPayments }
+    },
+    onError: (_err, _newPayment, context) => {
+      // Rollback to previous value on error
+      if (context?.previousPayments) {
+        qc.setQueryData(paymentsKeys.list(0, 20, ''), context.previousPayments)
+      }
+    },
+    onSettled: () => {
+      // Invalidate to ensure we have the correct data from server
       void qc.invalidateQueries({ queryKey: paymentsKeys.all })
     },
   })

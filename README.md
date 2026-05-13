@@ -70,7 +70,7 @@ docker compose -f infra/docker-compose.yml down
 
 ### Testing the application
 
-Most functionalities can be tested through the frontend dashboard at **http://localhost:3000**. However, payment creation is not currently available from the UI. To create payments, use one of the following methods:
+Most functionalities can be tested through the frontend dashboard at **http://localhost:3000**, including payment creation. You can also use:
 
 - **Bruno**: Import the collection from the `bruno/` directory
 - **curl**: Send POST requests directly to the API (e.g., `curl -X POST http://localhost:8081/api/payments ...`)

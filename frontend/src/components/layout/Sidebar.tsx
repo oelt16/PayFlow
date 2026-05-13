@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 const links = [
   { to: '/', label: 'Overview' },
   { to: '/payments', label: 'Payments' },
+  { to: '/payments/new', label: 'New Payment' },
   { to: '/refunds', label: 'Refunds' },
   { to: '/webhooks', label: 'Webhooks' },
   { to: '/settings', label: 'Settings' },
