@@ -100,10 +100,10 @@ describe('CreatePaymentForm', () => {
     expect(mockOnSubmit).not.toHaveBeenCalled()
   })
 
-  it('calls onSubmit with correct values when form is valid', () => {
+  it('calls onSubmit with correct values when form is valid', async () => {
     render(<CreatePaymentForm onSubmit={mockOnSubmit} />)
 
-    // Fill in the form
+    // Fill in the form - use userEvent for better simulation
     const amountInput = screen.getByLabelText(/amount/i)
     fireEvent.change(amountInput, { target: { value: '1000' } })
 
@@ -113,20 +113,27 @@ describe('CreatePaymentForm', () => {
     const cvcInput = screen.getByLabelText(/cvc/i)
     fireEvent.change(cvcInput, { target: { value: '123' } })
 
-    // Get the form element and submit it
-    const form = document.querySelector('form')
-    fireEvent.submit(form!)
+    // Click submit button (same pattern as other tests)
+    const buttons = screen.getAllByRole('button')
+    const submitButton = buttons.find(
+      (btn) => btn.textContent === 'Create Payment' && btn.getAttribute('type') === 'submit'
+    )
+    fireEvent.click(submitButton!)
 
     // Verify onSubmit was called with correct values
-    expect(mockOnSubmit).toHaveBeenCalled()
-    expect(mockOnSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({
+    // Note: handleSubmit passes (values, event) — we only check the first arg
+    await vi.waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalled()
+      const [values] = mockOnSubmit.mock.calls[0]
+      expect(values).toMatchObject({
         amount: 1000,
         currency: 'USD',
         cardNumber: '4111111111111111',
         cvc: '123',
-      }),
-    )
+        expMonth: 1,
+        expYear: 2026,
+      })
+    })
   })
 
   it('shows loading state when isSubmitting is true', () => {
