@@ -1,0 +1,35 @@
+info:
+  name: Idempotency - 5. No key (normal flow)
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: http://localhost:3000/api/v1/payments
+  headers:
+    - name: Authorization
+      value: Bearer {{api_key}}
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "amount": 5000,
+        "currency": "GBP",
+        "description": "Payment without idempotency key",
+        "card": {
+          "number": "4242424242424242",
+          "expMonth": 12,
+          "expYear": 2027,
+          "cvc": "123"
+        },
+        "metadata": {}
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 30000
+  followRedirects: true
+  maxRedirects: 5

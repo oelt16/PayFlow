@@ -1,0 +1,20 @@
+info:
+  name: Idempotency - 6. Capture (with key)
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: http://localhost:3000/api/v1/payments/{{payment_id}}/capture
+  headers:
+    - name: Authorization
+      value: Bearer {{api_key}}
+    - name: Idempotency-Key
+      value: 660e8400-e29b-41d4-a716-446655440001
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 30000
+  followRedirects: true
+  maxRedirects: 5

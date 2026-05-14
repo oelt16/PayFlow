@@ -24,4 +24,8 @@ public final class MerchantContext {
     public static void clear() {
         CURRENT.remove();
     }
+
+    public static boolean isSet() {
+        return CURRENT.get() != null;
+    }
 }

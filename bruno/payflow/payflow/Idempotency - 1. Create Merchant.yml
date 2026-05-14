@@ -1,0 +1,25 @@
+info:
+  name: Idempotency - 1. Create Merchant
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:3000/api/v1/merchants
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Idempotency Test Merchant",
+        "email": "idempotency-test@payflow.dev"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 30000
+  followRedirects: true
+  maxRedirects: 5

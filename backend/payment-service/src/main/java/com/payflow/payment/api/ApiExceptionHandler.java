@@ -1,6 +1,7 @@
 package com.payflow.payment.api;
 
 import com.payflow.payment.api.security.RequestIdFilter;
+import com.payflow.payment.application.exception.IdempotencyKeyReuseException;
 import com.payflow.payment.application.exception.PaymentNotFoundException;
 import com.payflow.payment.domain.exception.DomainException;
 import com.payflow.payment.domain.exception.InsufficientRefundableAmountException;
@@ -93,6 +94,20 @@ public class ApiExceptionHandler {
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<Map<String, Object>> domain(DomainException ex, HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "domain_error", ex.getMessage(), null, request);
+    }
+
+    @ExceptionHandler(IdempotencyKeyReuseException.class)
+    public ResponseEntity<Map<String, Object>> idempotencyKeyReuse(
+            IdempotencyKeyReuseException ex,
+            HttpServletRequest request
+    ) {
+        return error(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "idempotency_key_reuse",
+                "Idempotency key already used with different request body",
+                null,
+                request
+        );
     }
 
     private static ResponseEntity<Map<String, Object>> error(

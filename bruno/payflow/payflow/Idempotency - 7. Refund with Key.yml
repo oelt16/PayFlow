@@ -1,0 +1,29 @@
+info:
+  name: Idempotency - 7. Refund (with key)
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: http://localhost:3000/api/v1/payments/{{payment_id}}/refunds
+  headers:
+    - name: Authorization
+      value: Bearer {{api_key}}
+    - name: Content-Type
+      value: application/json
+    - name: Idempotency-Key
+      value: 770e8400-e29b-41d4-a716-446655440002
+  body:
+    type: json
+    data: |-
+      {
+        "amount": 5000,
+        "reason": "Customer request"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 30000
+  followRedirects: true
+  maxRedirects: 5

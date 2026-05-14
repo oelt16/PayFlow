@@ -1,0 +1,8 @@
+name: PayFlow Local Testing Environment
+variables:
+  - name: api_key
+    value: sk_test_a42768996319d6b291b2873b590e9956
+  - name: api_ket_idempotency-test-at-payflow.dev
+    value: sk_test_a42768996319d6b291b2873b590e9956
+  - name: payment_id
+    value: pay_2ef72dcd61524bc483dcf790fdc63c76

@@ -1,0 +1,37 @@
+info:
+  name: Idempotency - 3. Retry (same key + body)
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: http://localhost:3000/api/v1/payments
+  headers:
+    - name: Authorization
+      value: Bearer {{api_key}}
+    - name: Content-Type
+      value: application/json
+    - name: Idempotency-Key
+      value: 550e8400-e29b-41d4-a716-446655440000
+  body:
+    type: json
+    data: |-
+      {
+        "amount": 10000,
+        "currency": "USD",
+        "description": "Idempotency test payment",
+        "card": {
+          "number": "4242424242424242",
+          "expMonth": 12,
+          "expYear": 2027,
+          "cvc": "123"
+        },
+        "metadata": {}
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 30000
+  followRedirects: true
+  maxRedirects: 5
