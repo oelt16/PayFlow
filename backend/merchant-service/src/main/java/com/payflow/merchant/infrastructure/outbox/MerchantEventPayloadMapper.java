@@ -35,6 +35,7 @@ public class MerchantEventPayloadMapper {
         if (event instanceof MerchantDeactivatedEvent e) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("merchantId", e.merchantId().value());
+            m.put("keyPrefix", e.keyPrefix());
             m.put("deactivatedAt", e.deactivatedAt().toString());
             return m;
         }

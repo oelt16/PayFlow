@@ -100,7 +100,7 @@ public final class Merchant {
         }
         this.active = false;
         this.deactivatedAt = now;
-        recordEvent(new MerchantDeactivatedEvent(now, id, now));
+        recordEvent(new MerchantDeactivatedEvent(now, id, keyPrefix, now));
     }
 
     public void rotateApiKey(String newKeyPrefix, ApiKeyHash newHash) {

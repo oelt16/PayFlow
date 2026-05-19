@@ -4,6 +4,7 @@ import com.payflow.payment.api.security.JdbcApiKeyAuthenticator;
 import com.payflow.payment.api.security.MerchantContext;
 import com.payflow.payment.application.CreatePaymentCommand;
 import com.payflow.payment.application.CreatedPaymentResult;
+import com.payflow.payment.application.IdempotencyService;
 import com.payflow.payment.application.PaymentApplicationService;
 import com.payflow.payment.domain.CardBrand;
 import com.payflow.payment.domain.CardDetails;
@@ -57,6 +58,9 @@ class PaymentsControllerWebMvcTest {
 
     @MockBean
     private JdbcApiKeyAuthenticator jdbcApiKeyAuthenticator;
+
+    @MockBean
+    private IdempotencyService idempotencyService;
 
     @BeforeEach
     void merchantContext() {

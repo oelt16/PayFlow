@@ -11,6 +11,11 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       acks: all
       retries: 3
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      group-id: payment-service
   datasource:
     url: jdbc:postgresql://localhost:5432/payflow
     username: payflow
@@ -39,3 +44,9 @@ payflow:
     batch-size: 100
     topic: payments.events
     send-timeout-seconds: 30
+  api-key-cache:
+    ttl-seconds: 600
+    max-size: 10000
+    internal-endpoint:
+      base-url: ${PAYFLOW_API_KEY_CACHE_INTERNAL_ENDPOINT_BASE_URL:http://localhost:8082}
+      path: /v1/internal/merchants/validate-key
