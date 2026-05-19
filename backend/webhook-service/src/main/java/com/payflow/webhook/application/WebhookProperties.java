@@ -7,6 +7,7 @@ public class WebhookProperties {
 
     private int maxEndpointsPerMerchant = 5;
     private String signatureHeader = "Payflow-Signature";
+    private boolean allowHttp = false; // For local dev testing only
 
     public int getMaxEndpointsPerMerchant() {
         return maxEndpointsPerMerchant;
@@ -22,5 +23,13 @@ public class WebhookProperties {
 
     public void setSignatureHeader(String signatureHeader) {
         this.signatureHeader = signatureHeader;
+    }
+
+    public boolean isAllowHttp() {
+        return allowHttp;
+    }
+
+    public void setAllowHttp(boolean allowHttp) {
+        this.allowHttp = allowHttp;
     }
 }

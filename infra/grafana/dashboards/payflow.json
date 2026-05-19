@@ -80,7 +80,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate(payflow_payment_created_total{job=\"payment-service\"}[1m])) by (currency)",
+          "expr": "sum(rate(payflow_payment_total{job=\"payment-service\"}[1m])) by (currency)",
           "legendFormat": "Created {{currency}}",
           "refId": "A"
         }
@@ -139,7 +139,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate(payflow_payment_captured_total{job=\"payment-service\"}[5m])) / sum(rate(payflow_payment_created_total{job=\"payment-service\"}[5m])) * 100",
+          "expr": "sum(rate(payflow_payment_captured_total{job=\"payment-service\"}[5m])) / sum(rate(payflow_payment_total{job=\"payment-service\"}[5m])) * 100",
           "refId": "A"
         }
       ],
@@ -208,17 +208,17 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate(payflow_payment_amount_sum{job=\"payment-service\",currency=\"USD\"}[1h]))",
+          "expr": "sum(rate(payflow_payment_amount_cents_sum{job=\"payment-service\",currency=\"USD\"}[1h]))",
           "legendFormat": "USD",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(payflow_payment_amount_sum{job=\"payment-service\",currency=\"EUR\"}[1h]))",
+          "expr": "sum(rate(payflow_payment_amount_cents_sum{job=\"payment-service\",currency=\"EUR\"}[1h]))",
           "legendFormat": "EUR",
           "refId": "B"
         },
         {
-          "expr": "sum(rate(payflow_payment_amount_sum{job=\"payment-service\",currency=\"GBP\"}[1h]))",
+          "expr": "sum(rate(payflow_payment_amount_cents_sum{job=\"payment-service\",currency=\"GBP\"}[1h]))",
           "legendFormat": "GBP",
           "refId": "C"
         }
@@ -288,19 +288,14 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(payflow_payment_capture_latency_seconds_bucket{job=\"payment-service\"}[5m])) by (le))",
-          "legendFormat": "P50",
+          "expr": "rate(payflow_payment_capture_latency_seconds_sum{job=\"payment-service\"}[5m]) / rate(payflow_payment_capture_latency_seconds_count{job=\"payment-service\"}[5m])",
+          "legendFormat": "Avg Latency",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(payflow_payment_capture_latency_seconds_bucket{job=\"payment-service\"}[5m])) by (le))",
-          "legendFormat": "P95",
+          "expr": "rate(payflow_payment_capture_latency_seconds_count{job=\"payment-service\"}[5m])",
+          "legendFormat": "Captures/min",
           "refId": "B"
-        },
-        {
-          "expr": "histogram_quantile(0.99, sum(rate(payflow_payment_capture_latency_seconds_bucket{job=\"payment-service\"}[5m])) by (le))",
-          "legendFormat": "P99",
-          "refId": "C"
         }
       ],
       "title": "Payment Capture Latency (P50/P95/P99)",

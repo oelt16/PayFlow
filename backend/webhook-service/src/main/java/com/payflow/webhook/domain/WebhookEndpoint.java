@@ -37,12 +37,16 @@ public final class WebhookEndpoint {
     }
 
     public static WebhookEndpoint register(MerchantId merchantId, String url, Set<String> eventTypes, Instant now) {
+        return register(merchantId, url, eventTypes, now, false);
+    }
+
+    public static WebhookEndpoint register(MerchantId merchantId, String url, Set<String> eventTypes, Instant now, boolean allowHttp) {
         Objects.requireNonNull(merchantId, "merchantId");
         Objects.requireNonNull(url, "url");
         Objects.requireNonNull(eventTypes, "eventTypes");
         Objects.requireNonNull(now, "now");
         String trimmed = url.trim();
-        if (!trimmed.toLowerCase().startsWith("https://")) {
+        if (!allowHttp && !trimmed.toLowerCase().startsWith("https://")) {
             throw new InvalidWebhookUrlException("Webhook URL must use HTTPS");
         }
         if (eventTypes.isEmpty()) {

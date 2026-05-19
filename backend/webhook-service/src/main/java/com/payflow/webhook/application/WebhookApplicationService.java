@@ -54,7 +54,7 @@ public class WebhookApplicationService {
                     "Maximum " + webhookProperties.getMaxEndpointsPerMerchant() + " webhook endpoints per merchant"
             );
         }
-        WebhookEndpoint endpoint = WebhookEndpoint.register(merchantId, url, eventTypes, clock.instant());
+        WebhookEndpoint endpoint = WebhookEndpoint.register(merchantId, url, eventTypes, clock.instant(), webhookProperties.isAllowHttp());
         endpointRepository.save(endpoint);
         return new RegisteredWebhook(
                 endpoint.id(),
