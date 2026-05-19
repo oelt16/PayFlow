@@ -28,8 +28,12 @@ public abstract class PaymentIntegrationInfrastructure {
 
     @DynamicPropertySource
     static void registerInfrastructure(DynamicPropertyRegistry registry) {
+        // Start PostgreSQL first
         CONTAINER1_POSTGRES.start();
         seedMerchantsTableForTests(CONTAINER1_POSTGRES);
+
+        // Start Kafka before registering its properties (avoid race condition in CI)
+        CONTAINER2_KAFKA.start();
         registry.add("spring.datasource.url", CONTAINER1_POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", CONTAINER1_POSTGRES::getUsername);
         registry.add("spring.datasource.password", CONTAINER1_POSTGRES::getPassword);
