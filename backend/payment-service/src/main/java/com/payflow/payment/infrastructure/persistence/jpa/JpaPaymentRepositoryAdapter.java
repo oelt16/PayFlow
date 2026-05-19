@@ -8,6 +8,8 @@ import com.payflow.payment.domain.Payment;
 import com.payflow.payment.domain.PaymentId;
 import com.payflow.payment.domain.PaymentStatus;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -65,5 +67,21 @@ public class JpaPaymentRepositoryAdapter implements PaymentRepository {
                 page.getNumber(),
                 page.getSize()
         );
+    }
+
+    @Override
+    public List<Payment> findPendingOlderThan(Instant createdBefore, Instant expiresAtOrBefore, int limit) {
+        // Note: Spring Data doesn't support limit in query method, so we fetch and limit in code
+        // For better performance, could use Pageable with limit
+        List<PaymentJpaEntity> entities = springDataRepository
+                .findByStatusAndCreatedAtBeforeAndExpiresAtLessThanEqual(
+                        PaymentStatus.PENDING,
+                        createdBefore,
+                        expiresAtOrBefore
+                );
+        return entities.stream()
+                .limit(limit)
+                .map(mapper::toDomain)
+                .toList();
     }
 }

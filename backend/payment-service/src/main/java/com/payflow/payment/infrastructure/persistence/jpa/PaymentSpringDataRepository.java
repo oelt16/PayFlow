@@ -2,6 +2,8 @@ package com.payflow.payment.infrastructure.persistence.jpa;
 
 import com.payflow.payment.domain.PaymentStatus;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -15,4 +17,14 @@ public interface PaymentSpringDataRepository extends JpaRepository<PaymentJpaEnt
     Page<PaymentJpaEntity> findByMerchantId(String merchantId, Pageable pageable);
 
     Page<PaymentJpaEntity> findByMerchantIdAndStatus(String merchantId, PaymentStatus status, Pageable pageable);
+
+    /**
+     * Find pending payments eligible for expiry.
+     * Query: status=PENDING AND createdAt < createdBefore AND expiresAt <= expiresAtOrBefore
+     */
+    List<PaymentJpaEntity> findByStatusAndCreatedAtBeforeAndExpiresAtLessThanEqual(
+            PaymentStatus status,
+            Instant createdBefore,
+            Instant expiresAtOrBefore
+    );
 }
