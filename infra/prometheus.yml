@@ -1,0 +1,51 @@
+# PayFlow Prometheus Configuration
+# Scrape metrics from all backend services
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'payflow-local'
+    environment: 'development'
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Payment Service
+  - job_name: 'payment-service'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['payment-service:8081']
+        labels:
+          service: 'payment-service'
+
+  # Merchant Service
+  - job_name: 'merchant-service'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['merchant-service:8082']
+        labels:
+          service: 'merchant-service'
+
+  # Webhook Service
+  - job_name: 'webhook-service'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['webhook-service:8083']
+        labels:
+          service: 'webhook-service'
+
+  # Notification Service
+  - job_name: 'notification-service'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['notification-service:8084']
+        labels:
+          service: 'notification-service'

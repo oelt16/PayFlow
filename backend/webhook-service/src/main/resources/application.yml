@@ -45,3 +45,22 @@ payflow:
     internal-endpoint:
       base-url: ${PAYFLOW_API_KEY_CACHE_INTERNAL_ENDPOINT_BASE_URL:http://localhost:8082}
       path: /v1/internal/merchants/validate-key
+
+# Observability: Spring Boot Actuator + Prometheus
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0

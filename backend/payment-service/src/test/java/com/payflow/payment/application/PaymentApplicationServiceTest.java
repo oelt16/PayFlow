@@ -16,6 +16,7 @@ import com.payflow.payment.domain.PaymentStatus;
 import com.payflow.payment.domain.Refund;
 import com.payflow.payment.domain.RefundId;
 import com.payflow.payment.domain.event.PaymentRefundedEvent;
+import com.payflow.payment.infrastructure.metrics.PaymentServiceMetrics;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -36,6 +37,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -61,18 +63,24 @@ class PaymentApplicationServiceTest {
     @Mock
     private ClientSecretGenerator clientSecretGenerator;
 
+    @Mock
+    private PaymentServiceMetrics metrics;
+
     private PaymentApplicationService service;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        // Lenient mock to avoid strict stubbing issues since we don't verify metrics calls
+        lenient().when(metrics.startCaptureTimer()).thenReturn(null);
         service = new PaymentApplicationService(
                 paymentRepository,
                 refundRepository,
                 domainEventOutbox,
                 acquiringPort,
                 clientSecretGenerator,
-                clock
+                clock,
+                metrics
         );
     }
 

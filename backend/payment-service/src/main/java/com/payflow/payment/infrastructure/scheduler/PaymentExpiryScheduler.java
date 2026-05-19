@@ -13,36 +13,40 @@ import org.springframework.stereotype.Component;
 import com.payflow.payment.application.port.DomainEventOutbox;
 import com.payflow.payment.application.port.PaymentRepository;
 import com.payflow.payment.domain.Payment;
+import com.payflow.payment.infrastructure.metrics.PaymentServiceMetrics;
 
 /**
  * Scheduler for expiring pending payments that have passed their expiration time.
- * 
+ *
  * Runs every 5 minutes.
  * Query: status=PENDING AND createdAt < (now - 1h) AND expiresAt <= now
- * 
- * Transaction Strategy: Each payment.expire() + update runs in its own transaction 
+ *
+ * Transaction Strategy: Each payment.expire() + update runs in its own transaction
  * via auto-commit. This ensures one failure doesn't rollback the entire batch.
  */
 @Component
 public class PaymentExpiryScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentExpiryScheduler.class);
-    
+
     private static final Duration PENDING_THRESHOLD = Duration.ofHours(1);
     private static final int BATCH_SIZE = 100;
 
     private final PaymentRepository paymentRepository;
     private final DomainEventOutbox outboxAppender;
     private final Clock clock;
+    private final PaymentServiceMetrics metrics;
 
     public PaymentExpiryScheduler(
             PaymentRepository paymentRepository,
             DomainEventOutbox outboxAppender,
-            Clock clock
+            Clock clock,
+            PaymentServiceMetrics metrics
     ) {
         this.paymentRepository = paymentRepository;
         this.outboxAppender = outboxAppender;
         this.clock = clock;
+        this.metrics = metrics;
     }
 
     /**
@@ -54,23 +58,26 @@ public class PaymentExpiryScheduler {
         log.info("Starting payment expiry job");
         Instant now = clock.instant();
         Instant createdBefore = now.minus(PENDING_THRESHOLD);
-        
+
         List<Payment> expiredPayments = paymentRepository.findPendingOlderThan(createdBefore, now, BATCH_SIZE);
-        
+
         log.info("Found {} pending payments eligible for expiry", expiredPayments.size());
-        
+
         int processed = 0;
         for (Payment payment : expiredPayments) {
             try {
-                // Each payment expire() and update runs in its own "transaction" 
+                // Each payment expire() and update runs in its own "transaction"
                 // through auto-commit (no @Transactional on this method)
                 Instant currentTime = clock.instant();
                 payment.expire(currentTime);
                 paymentRepository.update(payment);
-                
+
                 // Append domain events to outbox
                 outboxAppender.append(payment.id().value(), payment.pullDomainEvents());
-                
+
+                // Record metrics
+                metrics.recordPaymentExpired();
+
                 processed++;
                 log.debug("Expired payment: {}", payment.id().value());
             } catch (Exception e) {
@@ -78,7 +85,7 @@ public class PaymentExpiryScheduler {
                 // Continue with next payment - one failure shouldn't stop the batch
             }
         }
-        
+
         log.info("Payment expiry job completed. Processed: {}/{}", processed, expiredPayments.size());
     }
 }

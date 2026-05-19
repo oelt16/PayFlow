@@ -18,6 +18,7 @@ import com.payflow.payment.domain.PaymentId;
 import com.payflow.payment.domain.PaymentStatus;
 import com.payflow.payment.domain.Refund;
 import com.payflow.payment.domain.event.PaymentRefundedEvent;
+import com.payflow.payment.infrastructure.metrics.PaymentServiceMetrics;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -36,6 +37,7 @@ public class PaymentApplicationService {
     private final AcquiringPort acquiringPort;
     private final ClientSecretGenerator clientSecretGenerator;
     private final Clock clock;
+    private final PaymentServiceMetrics metrics;
 
     public PaymentApplicationService(
             PaymentRepository paymentRepository,
@@ -43,7 +45,8 @@ public class PaymentApplicationService {
             DomainEventOutbox outboxAppender,
             AcquiringPort acquiringPort,
             ClientSecretGenerator clientSecretGenerator,
-            Clock clock
+            Clock clock,
+            PaymentServiceMetrics metrics
     ) {
         this.paymentRepository = paymentRepository;
         this.refundRepository = refundRepository;
@@ -51,6 +54,7 @@ public class PaymentApplicationService {
         this.acquiringPort = acquiringPort;
         this.clientSecretGenerator = clientSecretGenerator;
         this.clock = clock;
+        this.metrics = metrics;
     }
 
     @Transactional
@@ -64,6 +68,13 @@ public class PaymentApplicationService {
         String clientSecret = clientSecretGenerator.newClientSecret();
         paymentRepository.insert(payment, clientSecret);
         outboxAppender.append(payment.id().value(), payment.pullDomainEvents());
+
+        // Record metrics
+        metrics.recordPaymentCreated(
+                command.currency(),
+                command.amountMinor()
+        );
+
         return new CreatedPaymentResult(payment, clientSecret);
     }
 
@@ -81,17 +92,26 @@ public class PaymentApplicationService {
 
     @Transactional
     public Payment capture(MerchantId merchantId, PaymentId paymentId) {
-        Payment payment = paymentRepository
-                .findByIdAndMerchantId(paymentId, merchantId)
-                .orElseThrow(() -> new PaymentNotFoundException(paymentId.value()));
-        if (payment.status() == PaymentStatus.CAPTURED) {
+        var timerSample = metrics.startCaptureTimer();
+        try {
+            Payment payment = paymentRepository
+                    .findByIdAndMerchantId(paymentId, merchantId)
+                    .orElseThrow(() -> new PaymentNotFoundException(paymentId.value()));
+            if (payment.status() == PaymentStatus.CAPTURED) {
+                return payment;
+            }
+            acquiringPort.confirmCapture(paymentId, payment.amount(), merchantId);
+            payment.capture(clock.instant());
+            paymentRepository.update(payment);
+            outboxAppender.append(payment.id().value(), payment.pullDomainEvents());
+
+            // Record metrics
+            metrics.recordPaymentCaptured();
+
             return payment;
+        } finally {
+            metrics.stopCaptureTimer(timerSample);
         }
-        acquiringPort.confirmCapture(paymentId, payment.amount(), merchantId);
-        payment.capture(clock.instant());
-        paymentRepository.update(payment);
-        outboxAppender.append(payment.id().value(), payment.pullDomainEvents());
-        return payment;
     }
 
     @Transactional
@@ -102,6 +122,10 @@ public class PaymentApplicationService {
         payment.cancel(clock.instant(), reason);
         paymentRepository.update(payment);
         outboxAppender.append(payment.id().value(), payment.pullDomainEvents());
+
+        // Record metrics
+        metrics.recordPaymentCancelled();
+
         return payment;
     }
 
@@ -136,6 +160,10 @@ public class PaymentApplicationService {
         refundRepository.insert(refund);
         paymentRepository.update(payment);
         outboxAppender.append(payment.id().value(), events);
+
+        // Record metrics
+        metrics.recordPaymentRefunded();
+
         return refund;
     }
 

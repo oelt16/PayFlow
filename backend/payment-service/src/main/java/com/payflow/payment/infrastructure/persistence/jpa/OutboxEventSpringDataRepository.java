@@ -9,4 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface OutboxEventSpringDataRepository extends JpaRepository<OutboxEventJpaEntity, UUID> {
 
     List<OutboxEventJpaEntity> findByPublishedFalseOrderByCreatedAtAsc(Pageable pageable);
+
+    long countByPublishedFalse();
 }
