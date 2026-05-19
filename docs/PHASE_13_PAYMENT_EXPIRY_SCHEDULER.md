@@ -57,75 +57,182 @@ cd backend
 ./mvnw verify -pl payment-service -Dtest=PaymentExpirySchedulerTest
 ```
 
-> **Note**: Tests use TestContainers and require Docker to be running and accessible.
+> **Note**: Tests use TestContainers and require Docker to be running. On Windows with Docker Desktop + WSL2, you may need to enable TCP in Docker Desktop (`"hosts": ["tcp://0.0.0.0:2375"]`) or run tests from a Linux environment/WSL2.
 
-### Option 2: Manual Verification via Database
+### Option 2: Manual Verification via Running Services
 
-Start PayFlow with Docker Compose, then verify the scheduler works by checking the database:
+Start PayFlow with Docker Compose, then verify the scheduler works by creating a test payment and checking the results.
 
-#### Linux
+#### Step 1: Start PayFlow
 
 ```bash
-# 1. Start PayFlow
+# From the infra directory
 cd infra
 docker compose up -d
-
-# 2. Create a PENDING payment older than 1 hour
-docker exec -i payflow-postgres-1 psql -U payflow -d payments < create_old_pending_payment.sql
-
-# 3. Wait for scheduler to run (5 minutes) or trigger manually:
-docker exec payflow-payment-service-1 java -cp /app/app.jar com.payflow.payment.PaymentServiceApplication
-
-# 4. Check payment status
-docker exec -i payflow-postgres-1 psql -U payflow -d payments -c "SELECT id, status, created_at FROM payments;"
 ```
 
-#### Windows (PowerShell)
+#### Step 2: Create a Test PENDING Payment
 
+The payment must be older than 1 hour AND have its `expires_at` timestamp in the past.
+
+**Linux:**
+```bash
+docker exec payflow-postgres-1 psql -U payflow -d payflow -c "
+INSERT INTO payments.payments (id, merchant_id, amount, currency, status, description, metadata, client_secret, total_refunded, created_at, expires_at)
+VALUES ('pay_test_expiry_001', 'mer_test_dev', 10000.00, 'USD', 'PENDING', 'Test expiry scheduler', '{}', 'test_secret_001', 0, NOW() - INTERVAL '2 hours', NOW() - INTERVAL '30 minutes')
+ON CONFLICT (id) DO NOTHING;
+"
+```
+
+**Windows (PowerShell):**
 ```powershell
-# 1. Start PayFlow
-cd infra
-docker compose up -d
-
-# 2. Create a PENDING payment older than 1 hour
-docker exec payflow-postgres-1 psql -U payflow -d payments -c "INSERT INTO payments (id, merchant_id, amount, currency, status, created_at, expires_at) VALUES ('pay_test_123', 'mer_abc', 10000, 'USD', 'PENDING', NOW() - INTERVAL '2 hours', NOW() + INTERVAL '1 hour');"
-
-# 3. Wait 5 minutes or check logs for scheduler activity
-docker logs payflow-payment-service-1 --follow
-
-# 4. Query payment status
-docker exec payflow-postgres-1 psql -U payflow -d payments -c "SELECT id, status, created_at FROM payments WHERE id = 'pay_test_123';"
+docker exec payflow-postgres-1 psql -U payflow -d payflow -c "INSERT INTO payments.payments (id, merchant_id, amount, currency, status, description, metadata, client_secret, total_refunded, created_at, expires_at) VALUES ('pay_test_expiry_001', 'mer_test_dev', 10000.00, 'USD', 'PENDING', 'Test expiry scheduler', '{}', 'test_secret_001', 0, NOW() - INTERVAL '2 hours', NOW() - INTERVAL '30 minutes') ON CONFLICT (id) DO NOTHING;"
 ```
 
-### SQL Queries for Verification
+> **Note**: The database is `payflow` (not `payments`), and the table is in the `payments` schema: `payments.payments`.
 
-**Check for EXPIRED payments:**
+#### Step 3: Verify Payment is PENDING
+
+```bash
+# Linux / Windows
+docker exec payflow-postgres-1 psql -U payflow -d payflow -c "SELECT id, status, created_at, expires_at FROM payments.payments WHERE id = 'pay_test_expiry_001';"
+```
+
+Expected output:
+```
+         id          | status  |          created_at           |          expires_at           
+---------------------+---------+-------------------------------+-------------------------------
+ pay_test_expiry_001 | PENDING | ...-05-19 HH:MM:SS.ssssss+00 | ...-19 HH:MM:SS.ssssss+00
+```
+
+#### Step 4: Wait for Scheduler (5 minutes)
+
+The scheduler runs every 5 minutes. You can:
+
+**Option A: Wait for automatic run**
+```bash
+# Check the scheduler logs to see when it runs
+docker logs payflow-payment-service-1 --tail 20 | grep -i expiry
+```
+
+**Option B: Manually trigger (if needed)**
+The scheduler is automatic. Wait for the next run at minute :03, :08, :13, :18, :23, :28, :33, :38, :43, :48, :53, :58
+
+#### Step 5: Verify Payment Status Changed to EXPIRED
+
+```bash
+docker exec payflow-postgres-1 psql -U payflow -d payflow -c "SELECT id, status, created_at, expires_at FROM payments.payments WHERE id = 'pay_test_expiry_001';"
+```
+
+Expected output:
+```
+         id          | status  |          created_at           |          expires_at           
+---------------------+---------+-------------------------------+-------------------------------
+ pay_test_expiry_001 | EXPIRED | ...-05-19 HH:MM:SS.ssssss+00 | ...-19 HH:MM:SS.ssssss+00
+```
+
+#### Step 6: Verify Event Written to Outbox
+
+```bash
+docker exec payflow-postgres-1 psql -U payflow -d payflow -c "SELECT id, aggregate_id, event_type, created_at FROM payments.outbox_events WHERE event_type = 'payment.expired' ORDER BY created_at DESC LIMIT 5;"
+```
+
+Expected output:
+```
+                  id                  |             aggregate_id             |   event_type    |          created_at           
+--------------------------------------+--------------------------------------+-----------------+-------------------------------
+ xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx | pay_test_expiry_001              | payment.expired | 2026-05-19 HH:MM:SS.ssssss+00
+```
+
+### Option 3: Check Scheduler Logs
+
+```bash
+# View scheduler logs
+docker logs payflow-payment-service-1 2>&1 | grep -i "PaymentExpiryScheduler"
+
+# Or follow logs in real-time
+docker logs payflow-payment-service-1 --follow | grep -i "expiry"
+```
+
+Expected log output:
+```
+2026-05-19T17:33:58.377Z  INFO 1 --- [payment-service] [   scheduling-1] c.p.p.i.s.PaymentExpiryScheduler         : Starting payment expiry job
+2026-05-19T17:33:58.393Z  INFO 1 --- [payment-service] [   scheduling-1] c.p.p.i.s.PaymentExpiryScheduler         : Found 1 pending payments eligible for expiry
+2026-05-19T17:33:58.401Z  INFO 1 --- [payment-service] [   scheduling-1] c.p.p.i.s.PaymentExpiryScheduler         : Expired payment: pay_test_expiry_001
+2026-05-19T17:33:58.405Z  INFO 1 --- [payment-service] [   scheduling-1] c.p.p.i.s.PaymentExpiryScheduler         : Payment expiry job completed. Processed: 1/1
+```
+
+---
+
+## SQL Queries for Verification
+
+### Check for EXPIRED payments
+
 ```sql
--- PostgreSQL
 SELECT id, status, created_at, expires_at
-FROM payments
-WHERE status = 'EXPIRED';
+FROM payments.payments
+WHERE status = 'EXPIRED'
+ORDER BY created_at DESC
+LIMIT 10;
 ```
 
-**Check for PENDING payments that should be expired:**
+### Check for PENDING payments that should be expired
+
 ```sql
--- PostgreSQL: Find pending payments older than 1 hour
 SELECT id, merchant_id, amount, currency, created_at, expires_at
-FROM payments
+FROM payments.payments
 WHERE status = 'PENDING'
   AND created_at < NOW() - INTERVAL '1 hour'
   AND expires_at <= NOW();
 ```
 
-**Check outbox for PaymentExpiredEvent:**
+### Check outbox for PaymentExpiredEvent
+
 ```sql
--- PostgreSQL
 SELECT id, aggregate_id, event_type, payload, created_at, published
-FROM outbox_events
+FROM payments.outbox_events
 WHERE event_type = 'payment.expired'
 ORDER BY created_at DESC
 LIMIT 10;
 ```
+
+### Quick Status Check
+
+```sql
+-- Count payments by status
+SELECT status, COUNT(*) as count
+FROM payments.payments
+GROUP BY status;
+```
+
+---
+
+## Troubleshooting
+
+### Payment not being expired?
+
+1. **Check timestamps**: The payment must satisfy BOTH conditions:
+   - `created_at < NOW() - INTERVAL '1 hour'` (created more than 1 hour ago)
+   - `expires_at <= NOW()` (expires_at timestamp has passed)
+
+2. **Check scheduler logs**:
+   ```bash
+   docker logs payflow-payment-service-1 2>&1 | grep -i "expiry\|error"
+   ```
+
+3. **Check if scheduler is running**:
+   ```bash
+   docker logs payflow-payment-service-1 2>&1 | grep "Starting payment expiry job"
+   ```
+
+### NullPointerException in scheduler?
+
+If you see an error like:
+```
+java.lang.NullPointerException: Cannot invoke "Integer.intValue()" because the return value of "getCardExpMonth()" is null
+```
+
+This is caused by payments without card details. The fix is already applied in `PaymentPersistenceMapper.java` to handle null card data.
 
 ---
 
