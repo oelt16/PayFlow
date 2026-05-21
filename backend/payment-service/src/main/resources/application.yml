@@ -50,6 +50,18 @@ payflow:
     internal-endpoint:
       base-url: ${PAYFLOW_API_KEY_CACHE_INTERNAL_ENDPOINT_BASE_URL:http://localhost:8082}
       path: /v1/internal/merchants/validate-key
+  rate-limit:
+    enabled: true
+    requests-per-minute: 100
+    burst-capacity: 20
+    cache-max-size: 10000
+    cache-ttl: 30m
+    endpoints:
+      payments-create:
+        method: POST
+        path: /v1/payments
+        tokens: 20
+        refill-duration: 1m
 
 # Observability: Spring Boot Actuator + Prometheus
 management:

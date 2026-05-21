@@ -25,6 +25,7 @@
         <junit.version>5.10.2</junit.version>
         <assertj.version>3.26.3</assertj.version>
         <testcontainers.version>1.20.4</testcontainers.version>
+        <bucket4j.version>8.18.0</bucket4j.version>
     </properties>
 
     <dependencyManagement>
@@ -55,6 +56,11 @@
                 <version>${testcontainers.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.bucket4j</groupId>
+                <artifactId>bucket4j_jdk17-core</artifactId>
+                <version>${bucket4j.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

@@ -1,7 +1,7 @@
 # PayFlow — Payment Processing Platform
 ## Full Technical Specification v2.0
 
-> **Status as of v2.0:** Phases 1–9 complete. Phases 10–15 define the next evolution of the platform.
+> **Status as of v2.0:** Phases 1–15 complete. All planned phases delivered.
 
 ---
 
@@ -450,6 +450,8 @@ Images: `ghcr.io/<owner>/payflow/<service>:latest` and `:sha-<short>`.
 | Phase 7 — Infra & Polish | Docker Compose, K8s manifests, GitHub Actions CI, README with architecture diagram. | ✅ Done |
 | Phase 8 — Unified API Key Auth | Consistent API key validation across all services. | ✅ Done |
 | Phase 9 — API Key Rotation Fix | Fixed TanStack Query/Zustand race condition on rotate. Fixed `clientSecret: null` Zod parse failure. | ✅ Done |
+| Phase 14 — Observability | Prometheus metrics, Grafana dashboard, Zipkin tracing. | ✅ Done |
+| Phase 15 — Rate Limiting | Token bucket per API key (Bucket4j + Caffeine), 429 with headers, stricter endpoint limits. | ✅ Done |
 
 ---
 

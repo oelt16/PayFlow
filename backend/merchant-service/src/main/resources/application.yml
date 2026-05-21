@@ -37,6 +37,18 @@ payflow:
     batch-size: 100
     topic: merchant.events
     send-timeout-seconds: 30
+  rate-limit:
+    enabled: true
+    requests-per-minute: 100
+    burst-capacity: 20
+    cache-max-size: 10000
+    cache-ttl: 30m
+    endpoints:
+      api-keys-create:
+        method: POST
+        path: /v1/merchants/me/api-keys
+        tokens: 3
+        refill-duration: 1h
 
 # Observability: Spring Boot Actuator + Prometheus
 management:

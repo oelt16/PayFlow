@@ -1,0 +1,14 @@
+# Test profile for rate limiting — very low limits for fast tests
+payflow:
+  rate-limit:
+    enabled: true
+    requests-per-minute: 100
+    burst-capacity: 5
+    cache-max-size: 10000
+    cache-ttl: 30m
+    endpoints:
+      payments-create:
+        method: POST
+        path: /v1/payments
+        tokens: 3
+        refill-duration: 1m
