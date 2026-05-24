@@ -9,6 +9,8 @@ import jakarta.validation.Valid;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.swagger.v3.oas.annotations.Hidden;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -21,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/internal/webhooks")
 @Validated
+@Hidden
 public class InternalWebhookDispatchController {
 
     private final WebhookApplicationService webhookApplicationService;

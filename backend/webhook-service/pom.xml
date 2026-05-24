@@ -40,6 +40,11 @@
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
         </dependency>
+        <!-- API Documentation: OpenAPI 3.1 + Swagger UI -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
         <!-- Observability: Actuator + Micrometer + Prometheus -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -30,6 +30,17 @@ spring:
     default-schema: webhooks
     locations: classpath:db/migration
 
+springdoc:
+  api-docs:
+    path: /webhook/v3/api-docs
+  paths-to-match: /v1/**
+  swagger-ui:
+    path: /webhook/swagger-ui.html
+    url: /webhook/v3/api-docs
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
 payflow:
   webhook:
     max-endpoints-per-merchant: 5

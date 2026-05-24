@@ -38,6 +38,17 @@ spring:
     default-schema: payments
     create-schemas: true
 
+springdoc:
+  api-docs:
+    path: /payment/v3/api-docs
+  paths-to-match: /v1/**
+  swagger-ui:
+    path: /payment/swagger-ui.html
+    url: /payment/v3/api-docs
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
 payflow:
   outbox:
     poll-interval-ms: 500

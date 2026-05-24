@@ -6,11 +6,11 @@ import com.payflow.merchant.domain.exception.DomainException;
 import com.payflow.merchant.domain.exception.DuplicateEmailException;
 import com.payflow.merchant.domain.exception.MerchantAlreadyDeactivatedException;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,8 +23,19 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    @Schema(description = "Standard error response body")
+    public record ApiErrorResponse(@Schema(description = "Error details") ErrorDetail error) {
+
+        public record ErrorDetail(
+                @Schema(description = "Error code identifier", example = "merchant_not_found") String code,
+                @Schema(description = "Human-readable error message", example = "Merchant not found") String message,
+                @Schema(description = "Request ID for traceability", example = "req-abc123") String requestId,
+                @Schema(description = "Parameter that caused the error, if applicable", example = "id", nullable = true) String param
+        ) {}
+    }
+
     @ExceptionHandler(MerchantNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> notFound(MerchantNotFoundException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> notFound(MerchantNotFoundException ex, HttpServletRequest request) {
         return error(
                 HttpStatus.NOT_FOUND,
                 "merchant_not_found",
@@ -35,12 +46,12 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(DuplicateEmailException.class)
-    public ResponseEntity<Map<String, Object>> duplicateEmail(DuplicateEmailException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> duplicateEmail(DuplicateEmailException ex, HttpServletRequest request) {
         return error(HttpStatus.CONFLICT, "duplicate_email", ex.getMessage(), "email", request);
     }
 
     @ExceptionHandler(MerchantAlreadyDeactivatedException.class)
-    public ResponseEntity<Map<String, Object>> alreadyDeactivated(
+    public ResponseEntity<ApiErrorResponse> alreadyDeactivated(
             MerchantAlreadyDeactivatedException ex,
             HttpServletRequest request
     ) {
@@ -48,12 +59,12 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> illegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> illegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "invalid_request", ex.getMessage(), null, request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> validation(MethodArgumentNotValidException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> validation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         String param = ex.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(FieldError::getField)
@@ -68,16 +79,16 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<Map<String, Object>> notReadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> notReadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "invalid_json", "Malformed JSON body", null, request);
     }
 
     @ExceptionHandler(DomainException.class)
-    public ResponseEntity<Map<String, Object>> domain(DomainException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> domain(DomainException ex, HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "domain_error", ex.getMessage(), null, request);
     }
 
-    private static ResponseEntity<Map<String, Object>> error(
+    private static ResponseEntity<ApiErrorResponse> error(
             HttpStatus status,
             String code,
             String message,
@@ -85,14 +96,8 @@ public class ApiExceptionHandler {
             HttpServletRequest request
     ) {
         String requestId = String.valueOf(request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE));
-        Map<String, Object> err = new LinkedHashMap<>();
-        err.put("code", code);
-        err.put("message", message);
-        err.put("requestId", requestId);
-        if (param != null) {
-            err.put("param", param);
-        }
-        Map<String, Object> body = Map.of("error", err);
-        return ResponseEntity.status(status).body(body);
+        return ResponseEntity.status(status).body(
+                new ApiErrorResponse(new ApiErrorResponse.ErrorDetail(code, message, requestId, param))
+        );
     }
 }

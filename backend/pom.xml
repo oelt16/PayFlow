@@ -26,6 +26,7 @@
         <assertj.version>3.26.3</assertj.version>
         <testcontainers.version>1.20.4</testcontainers.version>
         <bucket4j.version>8.18.0</bucket4j.version>
+        <springdoc-openapi.version>2.6.0</springdoc-openapi.version>
     </properties>
 
     <dependencyManagement>
@@ -61,6 +62,11 @@
                 <groupId>com.bucket4j</groupId>
                 <artifactId>bucket4j_jdk17-core</artifactId>
                 <version>${bucket4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc-openapi.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

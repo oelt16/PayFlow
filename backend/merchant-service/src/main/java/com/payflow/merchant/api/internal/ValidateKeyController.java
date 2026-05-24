@@ -8,6 +8,8 @@ import com.payflow.merchant.domain.Merchant;
 
 import java.util.List;
 
+import io.swagger.v3.oas.annotations.Hidden;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Used by payment-service and webhook-service for cache validation.
  */
 @RestController
+@Hidden
 @RequestMapping("/v1/internal/merchants")
 public class ValidateKeyController {
 

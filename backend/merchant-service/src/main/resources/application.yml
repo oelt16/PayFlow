@@ -31,6 +31,17 @@ spring:
     default-schema: merchants
     create-schemas: true
 
+springdoc:
+  api-docs:
+    path: /merchant/v3/api-docs
+  paths-to-match: /v1/**
+  swagger-ui:
+    path: /merchant/swagger-ui.html
+    url: /merchant/v3/api-docs
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
 payflow:
   outbox:
     poll-interval-ms: 500
