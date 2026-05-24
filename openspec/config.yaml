@@ -1,0 +1,65 @@
+# OpenSpec Configuration — PayFlow
+# Auto-generated from Engram sdd-init context
+version: "1.0"
+created: "2026-05-24"
+project: "PayFlow"
+description: "Simplified payment processing platform (Stripe-inspired) — DDD, Hexagonal Architecture, TDD, Kafka event-driven"
+
+stack:
+  backend:
+    language: "Java 21 (virtual threads)"
+    framework: "Spring Boot 3.3.6"
+    build: "Maven"
+    testing: "JUnit 5 + Mockito + TestContainers + WireMock"
+    services:
+      - name: "payment-service"
+        port: 8081
+        description: "Core payment lifecycle — create, capture, refund, cancel"
+      - name: "merchant-service"
+        port: 8082
+        description: "Merchant accounts, API key authentication"
+      - name: "webhook-service"
+        port: 8083
+        description: "Webhook registration, HMAC delivery, exponential backoff"
+      - name: "notification-service"
+        port: null
+        description: "Kafka consumer — triggers webhook delivery from domain events"
+  frontend:
+    language: "TypeScript 5.9"
+    framework: "React 19 + Vite 8"
+    testing: "Vitest 4 + React Testing Library"
+    ui: "Tailwind CSS 4 + shadcn/ui + Recharts"
+    state: "TanStack Query (server) + Zustand (client)"
+  messaging:
+    platform: "Apache Kafka 3.9"
+    topics:
+      - "payments.events"
+      - "merchant.events"
+      - "webhook.deliveries"
+      - "webhook.dlq"
+  database:
+    engine: "PostgreSQL 16"
+    migrations: "Flyway"
+    pattern: "Transactional Outbox"
+  infrastructure:
+    container: "Docker"
+    orchestration: "Kubernetes + Helm"
+    ci: "GitHub Actions"
+
+architecture:
+  pattern: "Hexagonal (Ports and Adapters)"
+  layers:
+    - "domain/ — Aggregates, Value Objects, Events (pure Java, no frameworks)"
+    - "application/ — Use cases, command handlers"
+    - "api/ — REST controllers, DTOs, mappers"
+    - "infrastructure/ — JPA repos, Kafka producers, adapters"
+  bounded_contexts:
+    - "Payments — Core context, Payment aggregate lifecycle"
+    - "Merchants — Merchant accounts, API key management"
+    - "Webhooks — Endpoint registration, delivery with retry"
+    - "Notifications — Kafka consumer to webhook delivery"
+
+strict_tdd: true
+test_commands:
+  frontend: "npm test"
+  backend: "./mvnw verify"
