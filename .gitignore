@@ -38,3 +38,11 @@ coverage/
 
 # ATL (Agent Task Layer) artifacts
 .atl/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+crash.log
+override.tf
+terraform.tfvars.local
