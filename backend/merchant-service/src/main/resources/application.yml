@@ -4,18 +4,28 @@ server:
 spring:
   application:
     name: merchant-service
+  config:
+    import: "optional:aws-secretsmanager:/payflow/${ENVIRONMENT:local}/merchant-service/db?prefix=db."
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${PAYFLOW_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       acks: all
       retries: 3
   datasource:
-    url: jdbc:postgresql://localhost:5432/payflow
-    username: payflow
-    password: payflow
+    url: ${db.url}
+    username: ${db.username}
+    password: ${db.password}
     driver-class-name: org.postgresql.Driver
+  cloud:
+    aws:
+      endpoint: http://localhost:4566
+      region:
+        static: us-east-1
+      credentials:
+        access-key: test
+        secret-key: test
   jpa:
     hibernate:
       ddl-auto: validate

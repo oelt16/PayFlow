@@ -4,19 +4,29 @@ server:
 spring:
   application:
     name: webhook-service
+  config:
+    import: "optional:aws-secretsmanager:/payflow/${ENVIRONMENT:local}/webhook-service/db?prefix=db."
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${PAYFLOW_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       group-id: webhook-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/payflow?currentSchema=webhooks
-    username: payflow
-    password: payflow
+    url: ${db.url}
+    username: ${db.username}
+    password: ${db.password}
     hikari:
       connection-init-sql: CREATE SCHEMA IF NOT EXISTS merchants
+  cloud:
+    aws:
+      endpoint: http://localhost:4566
+      region:
+        static: us-east-1
+      credentials:
+        access-key: test
+        secret-key: test
   jpa:
     hibernate:
       ddl-auto: validate
