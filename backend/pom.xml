@@ -27,6 +27,7 @@
         <testcontainers.version>1.20.4</testcontainers.version>
         <bucket4j.version>8.18.0</bucket4j.version>
         <springdoc-openapi.version>2.6.0</springdoc-openapi.version>
+        <spring-cloud-aws.version>3.2.1</spring-cloud-aws.version>
     </properties>
 
     <dependencyManagement>
@@ -55,6 +56,13 @@
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
                 <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.awspring.cloud</groupId>
+                <artifactId>spring-cloud-aws-dependencies</artifactId>
+                <version>${spring-cloud-aws.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
