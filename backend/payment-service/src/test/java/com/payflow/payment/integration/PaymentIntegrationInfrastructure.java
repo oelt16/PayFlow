@@ -37,6 +37,9 @@ public abstract class PaymentIntegrationInfrastructure {
         registry.add("spring.datasource.url", CONTAINER1_POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", CONTAINER1_POSTGRES::getUsername);
         registry.add("spring.datasource.password", CONTAINER1_POSTGRES::getPassword);
+        registry.add("db.url", CONTAINER1_POSTGRES::getJdbcUrl);
+        registry.add("db.username", CONTAINER1_POSTGRES::getUsername);
+        registry.add("db.password", CONTAINER1_POSTGRES::getPassword);
         registry.add("spring.kafka.bootstrap-servers", CONTAINER2_KAFKA::getBootstrapServers);
         registry.add("payflow.outbox.poll-interval-ms", () -> "200");
     }
