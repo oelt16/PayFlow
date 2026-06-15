@@ -7,13 +7,17 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Minimal test controller for rate-limit integration tests.
+ * Only loaded under the ratelimit-test profile to avoid conflicting
+ * with MerchantsController's POST /v1/merchants/me/api-keys mapping.
  */
 @RestController
 @RequestMapping("/v1/merchants")
+@Profile("ratelimit-test")
 class RateLimitTestController {
 
     @GetMapping("/test")

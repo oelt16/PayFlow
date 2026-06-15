@@ -1,0 +1,13 @@
+fix: add @Profile to RateLimitTestControllers to resolve ambiguous mapping conflicts
+
+Both payment-service and merchant-service RateLimitTestControllers
+were missing the @Profile annotation, causing BeanCreationException
+(ambiguous mapping) when @SpringBootTest integration tests loaded
+the full application context.
+
+- payment-service: @PostMapping on /v1/payments conflicted with PaymentsController.create()
+- merchant-service: @PostMapping("/me/api-keys") conflicted with MerchantsController
+
+RateLimitIntegrationTest uses MockMvcBuilders.standaloneSetup(), so
+@Profile has no effect on it — the annotation only prevents the test
+controllers from being picked up by component scanning.
