@@ -1,6 +1,10 @@
 name: Infra CI
 
 on:
+  push:
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/infra-ci.yml'
   pull_request:
     branches: [main, master]
     paths:

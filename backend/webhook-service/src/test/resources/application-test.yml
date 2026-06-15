@@ -1,4 +1,8 @@
 spring:
+  cloud:
+    aws:
+      secretsmanager:
+        enabled: false
   task:
     scheduling:
       enabled: false

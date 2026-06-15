@@ -4,8 +4,6 @@ server:
 spring:
   application:
     name: webhook-service
-  config:
-    import: "optional:aws-secretsmanager:/payflow/${ENVIRONMENT:local}/webhook-service/db?prefix=db."
   kafka:
     bootstrap-servers: ${PAYFLOW_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
@@ -19,14 +17,6 @@ spring:
     password: ${db.password}
     hikari:
       connection-init-sql: CREATE SCHEMA IF NOT EXISTS merchants
-  cloud:
-    aws:
-      endpoint: http://localhost:4566
-      region:
-        static: us-east-1
-      credentials:
-        access-key: test
-        secret-key: test
   jpa:
     hibernate:
       ddl-auto: validate

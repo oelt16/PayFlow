@@ -1,0 +1,13 @@
+# AWS Secrets Manager configuration — activated via SPRING_PROFILES_ACTIVE=aws
+# Provides property-source overrides for db.* (DB credentials) from AWS Secrets Manager.
+spring:
+  config:
+    import: "optional:aws-secretsmanager:/payflow/${ENVIRONMENT:local}/merchant-service/db?prefix=db."
+  cloud:
+    aws:
+      endpoint: http://localhost:4566
+      region:
+        static: us-east-1
+      credentials:
+        access-key: test
+        secret-key: test
