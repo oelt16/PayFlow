@@ -1,3 +1,8 @@
 # AWS Secrets Manager is NOT loaded for tests.
 # DB credentials are provided by Testcontainers via @DynamicPropertySource.
 # The aws profile must be activated explicitly (SPRING_PROFILES_ACTIVE=aws) in production.
+spring:
+  cloud:
+    aws:
+      secretsmanager:
+        enabled: false
