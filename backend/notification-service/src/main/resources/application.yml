@@ -4,8 +4,6 @@ server:
 spring:
   application:
     name: notification-service
-  config:
-    import: "optional:aws-secretsmanager:/payflow/${ENVIRONMENT:local}/kafka"
   kafka:
     bootstrap-servers: ${PAYFLOW_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
@@ -13,14 +11,6 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-  cloud:
-    aws:
-      endpoint: http://localhost:4566
-      region:
-        static: us-east-1
-      credentials:
-        access-key: test
-        secret-key: test
 
 payflow:
   webhook-dispatch:

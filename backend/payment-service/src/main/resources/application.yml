@@ -4,8 +4,6 @@ server:
 spring:
   application:
     name: payment-service
-  config:
-    import: "optional:aws-secretsmanager:/payflow/${ENVIRONMENT:local}/payment-service/db?prefix=db."
   kafka:
     bootstrap-servers: ${PAYFLOW_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -25,14 +23,6 @@ spring:
     driver-class-name: org.postgresql.Driver
     hikari:
       connection-init-sql: CREATE SCHEMA IF NOT EXISTS merchants
-  cloud:
-    aws:
-      endpoint: http://localhost:4566
-      region:
-        static: us-east-1
-      credentials:
-        access-key: test
-        secret-key: test
   jpa:
     hibernate:
       ddl-auto: validate

@@ -2,31 +2,40 @@
 
 ## Technical Approach
 
-Three independent but coordinated changes: (1) expand CI push triggers to all branches, (2) fix `@DynamicPropertySource` to satisfy `db.*` placeholders, (3) add `application-test.yml` to decouple tests from AWS Secrets Manager at config load time. Each change is independently revertable.
+Three independent but coordinated changes: (1) expand CI push triggers to all branches, (2) fix `@DynamicPropertySource` to satisfy `db.*` placeholders, (3) extract `spring.config.import` of AWS Secrets Manager into a dedicated `application-aws.yml` profile so tests never load it. Each change is independently revertable.
 
 ## Architecture Decisions
 
-| Decision | Option | Tradeoff | Chosen |
-|----------|--------|----------|--------|
+| Decision | Options | Tradeoff | Chosen |
+|----------|---------|----------|--------|
 | Push trigger scope | `branches: ['*']` vs no filter | Explicit wildcard adds noise with same behavior | **No filter** — clean, matches standard practice |
-| disable AWS import | `spring.config.import: ""` vs `-Dspring.cloud.aws.secretsmanager.enabled=false` | Flag only disables AWS extension; import still resolves | **Empty import** — kills config loading at the source, no AWS SDK interaction at all |
+| AWS import isolation | `application-test.yml` with empty `spring.config.import` vs profile-separated `application-aws.yml` | Empty import doesn't work in SB 3.x (additive); profile separation is architecturally clean and propagates to all 4 services | **Profile: `application-aws.yml`** — clean separation, works with Spring Boot 3.3.6 additive import semantics |
 | db.* override location | `@DynamicPropertySource` vs separate PropertySource | `@DynamicPropertySource` is idiomatic, co-located with Testcontainers lifecycle | **@DynamicPropertySource** — single source of truth for test infrastructure properties |
+| Service scope | payment-service only vs all 4 services | All services use the same AWS import pattern (same `spring.config.import`, same `spring.cloud.aws.*` config); fixing all preemptively prevents the same CI failure when adding tests to other services | **All 4 services** — consistent architecture, no surprises |
 
 ## Data Flow
 
 ```
-application.yml                    application-test.yml (test profile)
-┌──────────────────────┐           ┌──────────────────────┐
-│ spring.config.import │           │ spring.config.import │
-│   → aws-secretsmanager│  OVERRIDE│   → "" (empty)       │
-│   → loads db.* props │  ──────►  │   → no AWS SDK touch │
-└──────────┬───────────┘           └──────────────────────┘
-           │                                │
-           │ Without fix: env missing db.*   │ With fix: skip AWS, use:
-           │   → ${db.url} unresolved        │   @DynamicPropertySource
-           │   → ApplicationContext fails    │   → registry.add("db.url", ...)
-           ▼                                ▼
-    spring.datasource.url = ${db.url}     spring.datasource.url = postgres://...
+Test time (no aws profile active):         Production time (aws profile active):
+┌──────────────────────────┐               ┌──────────────────────────┐
+│ application.yml          │               │ application.yml          │
+│   datasource.url: ${db.url}              │   datasource.url: ${db.url}
+│   → NO spring.config.import│             │   → NO spring.config.import│
+└──────────┬───────────────┘               └──────────┬───────────────┘
+           │                                         │
+           │ ┌───────────────────────┐               │ ┌───────────────────────┐
+           │ │ application-aws.yml   │               │ │ application-aws.yml   │
+           │ │   (NOT loaded)        │               │ │   spring.config.import │
+           │ └───────────────────────┘               │ │   → aws-secretsmanager │
+           │                                         │ │   → db.* from Secrets │
+           │ ┌───────────────────────┐               │ └───────────────────────┘
+           │ │ @DynamicPropertySource│               │         │
+           │ │   → db.url from TC    │               │         ▼
+           │ └───────────────────────┘               │ spring.datasource.url
+           │         │                               │   = db.url from AWS
+           ▼         ▼                               ▼
+spring.datasource.url                             spring.datasource.url
+  = db.url from Testcontainers                       = db.url from AWS Secrets
 ```
 
 ## File Changes
@@ -37,117 +46,59 @@ application.yml                    application-test.yml (test profile)
 | `.github/workflows/frontend-ci.yml` | Modify | Remove `branches` from `push` trigger |
 | `.github/workflows/infra-ci.yml` | Modify | Add `push:` trigger with path filters |
 | `backend/payment-service/src/test/.../PaymentIntegrationInfrastructure.java` | Modify | Add `db.url`, `db.username`, `db.password` to `@DynamicPropertySource` |
-| `backend/payment-service/src/test/resources/application-test.yml` | Create | Override `spring.config.import` to empty, disabling AWS Secrets Manager |
+| `backend/payment-service/src/test/resources/application-test.yml` | Modify | Remove `spring.config.import: ""` hack (no longer needed; AWS import lives in profile) |
+| `backend/payment-service/src/main/resources/application.yml` | Modify | Remove `spring.config.import` and `spring.cloud.aws.*` (moved to profile) |
+| `backend/merchant-service/src/main/resources/application.yml` | Modify | Remove `spring.config.import` and `spring.cloud.aws.*` (moved to profile) |
+| `backend/webhook-service/src/main/resources/application.yml` | Modify | Remove `spring.config.import` and `spring.cloud.aws.*` (moved to profile) |
+| `backend/notification-service/src/main/resources/application.yml` | Modify | Remove `spring.config.import` and `spring.cloud.aws.*` (moved to profile) |
+| `backend/*/src/main/resources/application-aws.yml` | Create | NEW — per-service profile with `spring.config.import` + `spring.cloud.aws.*`, activated via `SPRING_PROFILES_ACTIVE=aws` |
 
 ## Detailed Changes
 
-### 1. CI Trigger — `backend-ci.yml`
-
-**Before:**
-```yaml
-on:
-  push:
-    branches: [main, master]    # ← remove this line
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
-```
-
-**After:**
-```yaml
-on:
-  push:
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
-```
-
-Docker `if:` guard (line 49) is untouched:
-```yaml
-if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-```
-
-### 2. CI Trigger — `frontend-ci.yml`
-
-**Before:**
-```yaml
-on:
-  push:
-    branches: [main, master]    # ← remove this line
-    paths:
-      - 'frontend/**'
-```
-
-**After:**
-```yaml
-on:
-  push:
-    paths:
-      - 'frontend/**'
-```
-
-Docker `if:` guard (line 54) unchanged.
-
-### 3. CI Trigger — `infra-ci.yml`
-
-**Before:**
-```yaml
-on:
-  pull_request:
-    branches: [main, master]
-    paths:
-      - 'infra/terraform/**'
-      - '.github/workflows/infra-ci.yml'
-```
-
-**After:**
-```yaml
-on:
-  push:
-    paths:
-      - 'infra/terraform/**'
-      - '.github/workflows/infra-ci.yml'
-  pull_request:
-    branches: [main, master]
-    paths:
-      - 'infra/terraform/**'
-      - '.github/workflows/infra-ci.yml'
-```
+### 1–3. CI Trigger fixes
+No change. See previous version of this document.
 
 ### 4. DynamicPropertySource — `PaymentIntegrationInfrastructure.java`
+No change. See previous version of this document.
 
-**Before** (lines 37-39):
-```java
-registry.add("spring.datasource.url", CONTAINER1_POSTGRES::getJdbcUrl);
-registry.add("spring.datasource.username", CONTAINER1_POSTGRES::getUsername);
-registry.add("spring.datasource.password", CONTAINER1_POSTGRES::getPassword);
-```
+### 5. AWS Profile Extraction — all 4 services
 
-**After** (adds 3 lines):
-```java
-registry.add("spring.datasource.url", CONTAINER1_POSTGRES::getJdbcUrl);
-registry.add("spring.datasource.username", CONTAINER1_POSTGRES::getUsername);
-registry.add("spring.datasource.password", CONTAINER1_POSTGRES::getPassword);
-registry.add("db.url", CONTAINER1_POSTGRES::getJdbcUrl);
-registry.add("db.username", CONTAINER1_POSTGRES::getUsername);
-registry.add("db.password", CONTAINER1_POSTGRES::getPassword);
-```
+**Problem:** `spring.config.import: "optional:aws-secretsmanager:..."` lives in the base `application.yml`, so it loads unconditionally — even in tests. Spring Boot 3.x treats `spring.config.import` as additive, so a profile-specific override (`application-test.yml` with `import: ""`) cannot clear the base import. Tests that don't have access to AWS/LocalStack/Floci fail with `ApplicationContext` errors.
 
-These satisfy the `{db.url}`, `${db.username}`, `${db.password}` placeholders in `application.yml`'s datasource block (lines 22-24).
+**Solution:** Extract all AWS-specific config into `application-aws.yml`, a profile-specific document activated only when `SPRING_PROFILES_ACTIVE=aws` is set.
 
-### 5. New File — `application-test.yml`
-
-Full content:
-
+**Before** — each `application.yml` had:
 ```yaml
 spring:
   config:
-    import: ""
+    import: "optional:aws-secretsmanager:/payflow/.../db?prefix=db."
+  cloud:
+    aws:
+      endpoint: http://localhost:4566
+      region:
+        static: us-east-1
+      credentials:
+        access-key: test
+        secret-key: test
 ```
 
-**What it does:** The test profile (`@ActiveProfiles("test")` or default `test`) overrides `spring.config.import` from `application.yml` (line 8: `"optional:aws-secretsmanager:/payflow/.../db?prefix=db."`). By setting it to `""`, Spring Boot skips the AWS Secrets Manager import entirely, so tests never attempt an AWS SDK connection. The `@DynamicPropertySource` provides all database properties directly.
+**After** — `application.yml` removes those lines, and a new `application-aws.yml` contains them:
+```yaml
+# application-aws.yml — activated via SPRING_PROFILES_ACTIVE=aws
+spring:
+  config:
+    import: "optional:aws-secretsmanager:/payflow/${ENVIRONMENT:local}/.../db?prefix=db."
+  cloud:
+    aws:
+      endpoint: http://localhost:4566
+      region:
+        static: us-east-1
+      credentials:
+        access-key: test
+        secret-key: test
+```
 
-**Why not just `@DynamicPropertySource`?** The `spring.config.import` is resolved *before* `@DynamicPropertySource` runs — even with `optional:`, the AWS SDK can throw during PropertySource resolution if credentials are missing. The `application-test.yml` ensures config loading itself succeeds, and `@DynamicPropertySource` fills in the actual values.
+**Deployment requirement:** Environments that rely on AWS Secrets Manager (not K8s secrets or Docker Compose env vars) MUST set `SPRING_PROFILES_ACTIVE=aws`. The standard Docker Compose (`docker-compose.yml` and `docker-compose-floci.yml`) and K8s deployments override `SPRING_DATASOURCE_*` via environment variables and do NOT need the `aws` profile — the unresolved `${db.url}` placeholder is ignored when a higher-priority property (`SPRING_DATASOURCE_URL`) exists.
 
 ## Testing Strategy
 
